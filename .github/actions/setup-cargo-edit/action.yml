@@ -11,7 +11,7 @@ runs:
   using: composite
   steps:
     - name: Setup cargo-binstall
-      uses: dataroadinc/github-actions/.github/actions/setup-cargo-binstall@v0.0.1
+      uses: dataroadinc/github-actions/.github/actions/setup-cargo-binstall@main
 
     - name: Determine version
       id: version
@@ -49,12 +49,15 @@ runs:
     - name: Verify installation
       shell: bash
       run: |
-        CARGO_SET_VERSION_BIN="$HOME/.cargo/bin/cargo-set-version${{ runner.os == 'Windows' && '.exe' || '' }}"
-        if [ -f "$CARGO_SET_VERSION_BIN" ]; then
-          chmod +x "$CARGO_SET_VERSION_BIN"
-          "$CARGO_SET_VERSION_BIN" --version
+        export PATH="$HOME/.cargo/bin:$PATH"
+        # cargo-edit provides cargo subcommands, verify via cargo
+        if cargo set-version --version > /dev/null 2>&1; then
+          echo "✓ cargo-edit verified via cargo set-version --version"
+          cargo set-version --version
+        elif cargo set-version --help > /dev/null 2>&1; then
+          echo "✓ cargo-edit verified via cargo set-version --help"
         else
-          echo "❌ Error: cargo-set-version binary not found at $CARGO_SET_VERSION_BIN"
+          echo "❌ Error: cargo set-version command not found"
           echo "Checking cargo bin directory:"
           ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
           exit 1
