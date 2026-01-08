@@ -14,7 +14,7 @@ runs:
   using: composite
   steps:
     - name: Setup cargo-version-info
-      uses: dataroadinc/github-actions/.github/actions/setup-cargo-version-info@v0.0.1
+      uses: dataroadinc/github-actions/.github/actions/setup-cargo-version-info@main
 
     - name: Generate release page
       shell: bash

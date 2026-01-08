@@ -70,6 +70,6 @@ runs:
         echo "✓ Attached ${ARTIFACT_NAME}"
 
     - name: Regenerate release page
-      uses: dataroadinc/github-actions/.github/actions/generate-release-page@v0.0.1
+      uses: dataroadinc/github-actions/.github/actions/generate-release-page@main
       with:
         release-tag: ${{ inputs.release-tag }}
