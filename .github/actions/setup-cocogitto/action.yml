@@ -14,7 +14,7 @@ runs:
       uses: dataroadinc/github-actions/.github/actions/setup-cargo-binstall@v0.0.1
 
     - name: Setup cargo-edit
-      uses: dataroadinc/github-actions/.github/actions/setup-cargo-edit@v0.0.1
+      uses: dataroadinc/github-actions/.github/actions/setup-cargo-edit@main
 
     - name: Determine version
       id: version
