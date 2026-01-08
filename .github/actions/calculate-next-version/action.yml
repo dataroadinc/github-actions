@@ -1,0 +1,33 @@
+name: Calculate Next Version
+description: Determine next patch version from latest GitHub release using cargo-version-info
+
+outputs:
+  version:
+    description: Next patch version (e.g., 0.0.6)
+    value: ${{ steps.calc.outputs.next_version }}
+  latest:
+    description: Latest release version (e.g., 0.0.5)
+    value: ${{ steps.calc.outputs.latest_version }}
+  tag:
+    description: Next tag name with v prefix (e.g., v0.0.6)
+    value: ${{ steps.calc.outputs.next_tag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-version-info
+      uses: ./.github/actions/setup-cargo-version-info
+
+    - name: Calculate next patch version
+      id: calc
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        export PATH="$HOME/.cargo/bin:$PATH"
+
+        # Use cargo-version-info with github-actions format
+        # This writes directly to GITHUB_OUTPUT: latest_version, next_version, next_tag
+        # These values are automatically available as step outputs
+        cargo version-info next --format github-actions

@@ -1,0 +1,74 @@
+name: Update Release Badge
+description: Update a specific badge in a GitHub release body
+
+inputs:
+  release-tag:
+    description: 'Release tag (e.g., v0.0.1)'
+    required: true
+  badge-name:
+    description: 'Badge name/identifier (e.g., "CLI macOS ARM")'
+    required: true
+  status:
+    description: 'Status: success, failure, or pending'
+    required: true
+    default: 'pending'
+
+runs:
+  using: composite
+  steps:
+    - name: Update badge
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        TAG="${{ inputs.release-tag }}"
+        BADGE_NAME="${{ inputs.badge-name }}"
+        STATUS="${{ inputs.status }}"
+        
+        # Determine badge color and label
+        case "$STATUS" in
+          success)
+            COLOR="brightgreen"
+            LABEL="✓"
+            ;;
+          failure)
+            COLOR="red"
+            LABEL="✗"
+            ;;
+          pending|*)
+            COLOR="lightgray"
+            LABEL="○"
+            ;;
+        esac
+        
+        # URL-encode badge name for shields.io
+        ENCODED_NAME=$(echo "$BADGE_NAME" | sed 's/ /%20/g')
+        BADGE_MARKDOWN="![${BADGE_NAME}](https://img.shields.io/badge/${ENCODED_NAME}-${LABEL}-${COLOR})"
+        
+        echo "Updating badge: ${BADGE_NAME} -> ${STATUS} (${COLOR})"
+        
+        # Get current release body
+        RELEASE_BODY=$(gh release view "$TAG" --json body --jq '.body' 2>/dev/null || echo "")
+        
+        if [ -z "$RELEASE_BODY" ]; then
+          echo "Release $TAG not found, skipping badge update"
+          exit 0
+        fi
+        
+        # Check if badge already exists (simple string match)
+        if echo "$RELEASE_BODY" | grep -q "!\[${BADGE_NAME}\]"; then
+          # Replace existing badge
+          NEW_BODY=$(echo "$RELEASE_BODY" | sed "s|!\[${BADGE_NAME}\](https://img.shields.io/badge/[^)]*)|${BADGE_MARKDOWN}|g")
+          echo "Replaced existing badge"
+        else
+          # Badge doesn't exist yet - this shouldn't happen if release is properly initialized
+          echo "Warning: Badge ${BADGE_NAME} not found in release body"
+          exit 0
+        fi
+        
+        # Update release with new body
+        # Using gh release edit instead of API for simplicity
+        echo "$NEW_BODY" | gh release edit "$TAG" --notes-file -
+        
+        echo "✓ Badge updated successfully"
+

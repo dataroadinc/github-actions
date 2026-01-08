@@ -1,0 +1,46 @@
+name: Package Artifacts
+description: Package downloaded build artifacts into zip files for release
+
+inputs:
+  artifacts-dir:
+    description: 'Directory containing downloaded artifacts'
+    required: false
+    default: 'artifacts/'
+  output-dir:
+    description: 'Directory to output packaged zip files'
+    required: false
+    default: 'release-packages'
+
+outputs:
+  package-count:
+    description: 'Number of packages created'
+    value: ${{ steps.package.outputs.count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Package artifacts
+      id: package
+      shell: bash
+      run: |
+        ARTIFACTS_DIR="${{ inputs.artifacts-dir }}"
+        OUTPUT_DIR="${{ inputs.output-dir }}"
+        
+        mkdir -p "$OUTPUT_DIR"
+        
+        COUNT=0
+        cd "$ARTIFACTS_DIR"
+        for dir in */; do
+          artifact_name="${dir%/}"
+          echo "Packaging ${artifact_name}..."
+          cd "$artifact_name"
+          zip -r "../../${OUTPUT_DIR}/${artifact_name}.zip" .
+          cd ..
+          ((COUNT++))
+        done
+        
+        cd ..
+        echo "count=${COUNT}" >> $GITHUB_OUTPUT
+        echo "Packaged ${COUNT} artifacts"
+        ls -lh "$OUTPUT_DIR"/
+

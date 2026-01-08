@@ -1,0 +1,40 @@
+name: Get Version
+description: Get current version from Cargo.toml and compare with latest git tag using cargo-version-info
+
+outputs:
+  version:
+    description: "Current version from Cargo.toml (e.g., 0.0.1)"
+    value: ${{ steps.version.outputs.version }}
+  version_changed:
+    description: "Whether version changed since last tag (true/false)"
+    value: ${{ steps.version.outputs.changed }}
+  latest_tag_version:
+    description: "Version from latest git tag (e.g., 0.0.1)"
+    value: ${{ steps.version.outputs.latest_tag_version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-version-info
+      uses: ./.github/actions/setup-cargo-version-info
+
+    - name: Get current version from Cargo.toml
+      id: cargo_version
+      shell: bash
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        # Use cargo-version-info current with github-actions format
+        # This writes directly to GITHUB_OUTPUT: version
+        cargo version-info current --format github-actions
+
+    - name: Check if version changed
+      id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+        export PATH="$HOME/.cargo/bin:$PATH"
+
+        # Use cargo-version-info changed command with github-actions format
+        # This writes directly to GITHUB_OUTPUT: changed, version, latest_tag_version
+        # These values are automatically available as step outputs
+        cargo version-info changed --format github-actions

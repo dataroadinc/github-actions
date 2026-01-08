@@ -1,0 +1,49 @@
+name: Publish Draft Release
+description: Publish an existing draft release for the given version.
+
+inputs:
+  version:
+    description: 'Version number (e.g., 0.0.1)'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Publish draft release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+
+        VERSION="${{ inputs.version }}"
+        TAG="v${VERSION}"
+
+        echo "Checking if release ${TAG} exists..."
+        if gh release view "${TAG}" >/dev/null 2>&1; then
+          IS_DRAFT=$(gh release view "${TAG}" --json isDraft --jq '.isDraft')
+          if [ "${IS_DRAFT}" = "true" ]; then
+            echo "Publishing draft release ${TAG}..."
+            set +e
+            ERROR_OUTPUT=$(gh release edit "${TAG}" --draft=false 2>&1)
+            EXIT_CODE=$?
+            set -e
+
+            if [ ${EXIT_CODE} -eq 0 ]; then
+              echo "✓ Published release ${TAG}"
+            else
+              if echo "${ERROR_OUTPUT}" | grep -q "tag_name was used by an immutable release"; then
+                echo "⚠ Release ${TAG} is already published (immutable), skipping"
+              else
+                echo "Error publishing release: ${ERROR_OUTPUT}"
+                exit ${EXIT_CODE}
+              fi
+            fi
+          else
+            echo "✓ Release ${TAG} is already published, skipping"
+          fi
+        else
+          echo "⚠ Release ${TAG} does not exist, skipping publish (prepare-release may have failed)"
+          exit 0
+        fi
+

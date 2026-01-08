@@ -1,0 +1,29 @@
+name: Generate Release Page
+description: Generate complete release page using cargo-version-info
+
+inputs:
+  release-tag:
+    description: "Release tag (e.g., v0.0.1)"
+    required: true
+  output-file:
+    description: "File to write release page to"
+    required: false
+    default: "RELEASE_PAGE.md"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-version-info
+      uses: ./.github/actions/setup-cargo-version-info
+
+    - name: Generate release page
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        # Use cargo-version-info to generate complete release page
+        # This combines badges, PR log, and changelog
+        cargo version-info release-page \
+          --since-tag "${{ inputs.release-tag }}" \
+          --output "${{ inputs.output-file }}"

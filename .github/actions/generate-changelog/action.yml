@@ -1,0 +1,28 @@
+name: Generate Changelog
+description: Generate changelog from conventional commits using cargo-version-info
+
+inputs:
+  release-tag:
+    description: "Release tag (e.g., v0.0.1)"
+    required: true
+  output-file:
+    description: "File to write changelog to"
+    required: false
+    default: "CHANGELOG.md"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-version-info
+      uses: ./.github/actions/setup-cargo-version-info
+
+    - name: Generate changelog
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        # Use cargo-version-info to generate changelog for the specified tag
+        cargo version-info changelog \
+          --at "${{ inputs.release-tag }}" \
+          --output "${{ inputs.output-file }}"

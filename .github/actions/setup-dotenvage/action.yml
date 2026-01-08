@@ -1,0 +1,139 @@
+name: Setup dotenvage
+description: Install dotenvage with caching for environment file processing
+
+inputs:
+  version:
+    description: "Version to install (e.g., 0.0.9). Overrides env var."
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-binstall
+      uses: ./.github/actions/setup-cargo-binstall
+
+    - name: Determine version
+      id: version
+      shell: bash
+      run: |
+        # Priority: input > env var > default
+        VERSION="${{ inputs.version }}"
+        if [ -z "$VERSION" ]; then
+          VERSION="${DOTENVAGE_VERSION:-0.0.9}"
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Installing dotenvage version: ${VERSION}"
+
+    - name: Ensure cargo bin directory exists
+      shell: bash
+      run: mkdir -p "$HOME/.cargo/bin"
+
+    - name: Add cargo bin to PATH
+      shell: bash
+      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Cache dotenvage binary
+      uses: actions/cache@v4
+      id: cache-dotenvage
+      with:
+        path: ~/.cargo/bin/dotenvage${{ runner.os == 'Windows' && '.exe' || '' }}
+        key: dotenvage-${{ steps.version.outputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Install dotenvage if not cached
+      if: steps.cache-dotenvage.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "Installing dotenvage via cargo-binstall..."
+        DOTENVAGE_BIN="$HOME/.cargo/bin/dotenvage"${{ runner.os == 'Windows' && '.exe' || '' }}
+
+        # Check if binary already exists (from previous run or cache)
+        if [ -f "$DOTENVAGE_BIN" ]; then
+          echo "✓ dotenvage binary already exists at $DOTENVAGE_BIN"
+          chmod +x "$DOTENVAGE_BIN"
+        else
+          # Binary doesn't exist, install it
+          echo "Binary not found, installing dotenvage..."
+          VERSION="${{ steps.version.outputs.version }}"
+          # Try installing specific version first
+          if ! cargo binstall --no-confirm --version "${VERSION}" dotenvage; then
+            echo "Warning: Failed to install dotenvage ${VERSION} via cargo-binstall, trying latest..."
+            cargo binstall --no-confirm dotenvage
+          fi
+
+          # If still not found, force reinstall (cargo-binstall may think it's installed but binary missing)
+          if [ ! -f "$DOTENVAGE_BIN" ]; then
+            echo "Binary still not found after install, forcing reinstall..."
+            cargo binstall --no-confirm --force --version "${VERSION}" dotenvage || {
+              echo "Warning: Failed to force install dotenvage ${VERSION}, trying latest..."
+              cargo binstall --no-confirm --force dotenvage
+            }
+          fi
+
+          # Verify binary exists and make it executable
+          if [ -f "$DOTENVAGE_BIN" ]; then
+            chmod +x "$DOTENVAGE_BIN"
+            echo "✓ dotenvage installed and made executable"
+          else
+            echo "❌ Error: Binary not found at $DOTENVAGE_BIN after installation attempts"
+            echo "Checking cargo bin directory:"
+            ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
+            echo "Checking if dotenvage is in PATH:"
+            which dotenvage || echo "dotenvage not in PATH"
+            exit 1
+          fi
+        fi
+
+    - name: Ensure cached binary is executable or install
+      if: steps.cache-dotenvage.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        DOTENVAGE_BIN="$HOME/.cargo/bin/dotenvage"${{ runner.os == 'Windows' && '.exe' || '' }}
+        if [ -f "$DOTENVAGE_BIN" ]; then
+          chmod +x "$DOTENVAGE_BIN"
+          echo "✓ Ensured cached dotenvage binary is executable"
+        else
+          echo "⚠ Cached binary not found at $DOTENVAGE_BIN, installing..."
+          VERSION="${{ steps.version.outputs.version }}"
+          # Try installing specific version first
+          if ! cargo binstall --no-confirm --version "${VERSION}" dotenvage; then
+            echo "Warning: Failed to install dotenvage ${VERSION} via cargo-binstall, trying latest..."
+            cargo binstall --no-confirm dotenvage
+          fi
+
+          # If still not found, force reinstall
+          if [ ! -f "$DOTENVAGE_BIN" ]; then
+            echo "Binary still not found after install, forcing reinstall..."
+            cargo binstall --no-confirm --force --version "${VERSION}" dotenvage || {
+              echo "Warning: Failed to force install dotenvage ${VERSION}, trying latest..."
+              cargo binstall --no-confirm --force dotenvage
+            }
+          fi
+
+          # Verify binary exists and make it executable
+          if [ -f "$DOTENVAGE_BIN" ]; then
+            chmod +x "$DOTENVAGE_BIN"
+            echo "✓ dotenvage installed and made executable"
+          else
+            echo "❌ Error: Binary not found at $DOTENVAGE_BIN after installation attempts"
+            echo "Checking cargo bin directory:"
+            ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
+            echo "Checking if dotenvage is in PATH:"
+            which dotenvage || echo "dotenvage not in PATH"
+            exit 1
+          fi
+        fi
+
+    - name: Verify installation
+      shell: bash
+      run: |
+        DOTENVAGE_BIN="$HOME/.cargo/bin/dotenvage"${{ runner.os == 'Windows' && '.exe' || '' }}
+        if [ -f "$DOTENVAGE_BIN" ]; then
+          "$DOTENVAGE_BIN" --version
+        else
+          echo "Error: dotenvage binary not found at $DOTENVAGE_BIN"
+          echo "Checking PATH: $PATH"
+          echo "Checking cargo bin directory:"
+          ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
+          exit 1
+        fi

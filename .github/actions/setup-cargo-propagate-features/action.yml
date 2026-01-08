@@ -1,0 +1,116 @@
+name: Setup cargo-propagate-features
+description: Install cargo-propagate-features with caching for feature propagation
+
+inputs:
+  version:
+    description: "Version to install (e.g., 0.2.0). Overrides env var. Defaults to 'latest'."
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-binstall
+      uses: ./.github/actions/setup-cargo-binstall
+
+    - name: Determine version
+      id: version
+      shell: bash
+      run: |
+        # Priority: input > env var > default (latest)
+        VERSION="${{ inputs.version }}"
+        if [ -z "$VERSION" ]; then
+          VERSION="${CARGO_PROPAGATE_FEATURES_VERSION:-latest}"
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Installing cargo-propagate-features version: ${VERSION}"
+
+    - name: Ensure cargo bin directory exists
+      shell: bash
+      run: mkdir -p "$HOME/.cargo/bin"
+
+    - name: Add cargo bin to PATH
+      shell: bash
+      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Cache cargo-propagate-features binary
+      uses: actions/cache@v4
+      id: cache-cargo-propagate-features
+      with:
+        path: ~/.cargo/bin/cargo-propagate-features${{ runner.os == 'Windows' && '.exe' || '' }}
+        key: cargo-propagate-features-${{ steps.version.outputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Install cargo-propagate-features if not cached
+      if: steps.cache-cargo-propagate-features.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "Installing cargo-propagate-features via cargo-binstall..."
+        CARGO_PROPAGATE_FEATURES_BIN="$HOME/.cargo/bin/cargo-propagate-features"${{ runner.os == 'Windows' && '.exe' || '' }}
+
+        # Check if binary already exists (from previous run or cache)
+        if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
+          echo "✓ cargo-propagate-features binary already exists at $CARGO_PROPAGATE_FEATURES_BIN"
+          chmod +x "$CARGO_PROPAGATE_FEATURES_BIN"
+        else
+          # Binary doesn't exist, install it
+          echo "Binary not found, installing cargo-propagate-features..."
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ "$VERSION" = "latest" ]; then
+            cargo binstall --no-confirm cargo-propagate-features
+          else
+            cargo binstall --no-confirm --version "${VERSION}" cargo-propagate-features
+          fi
+
+          # Verify binary exists and make it executable
+          if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
+            chmod +x "$CARGO_PROPAGATE_FEATURES_BIN"
+            echo "✓ cargo-propagate-features installed and made executable"
+          else
+            echo "❌ Error: Binary not found at $CARGO_PROPAGATE_FEATURES_BIN after installation"
+            echo "Checking cargo bin directory:"
+            ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
+            echo "Checking if cargo-propagate-features is in PATH:"
+            which cargo-propagate-features || echo "cargo-propagate-features not in PATH"
+            exit 1
+          fi
+        fi
+
+    - name: Ensure cached binary is executable or install
+      if: steps.cache-cargo-propagate-features.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        CARGO_PROPAGATE_FEATURES_BIN="$HOME/.cargo/bin/cargo-propagate-features"${{ runner.os == 'Windows' && '.exe' || '' }}
+        if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
+          chmod +x "$CARGO_PROPAGATE_FEATURES_BIN"
+          echo "✓ Ensured cached cargo-propagate-features binary is executable"
+        else
+          echo "⚠ Cached binary not found at $CARGO_PROPAGATE_FEATURES_BIN, installing..."
+          cargo binstall --no-confirm cargo-propagate-features
+
+          # Verify binary exists and make it executable
+          if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
+            chmod +x "$CARGO_PROPAGATE_FEATURES_BIN"
+            echo "✓ cargo-propagate-features installed and made executable"
+          else
+            echo "❌ Error: Binary not found at $CARGO_PROPAGATE_FEATURES_BIN after installation"
+            echo "Checking cargo bin directory:"
+            ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
+            echo "Checking if cargo-propagate-features is in PATH:"
+            which cargo-propagate-features || echo "cargo-propagate-features not in PATH"
+            exit 1
+          fi
+        fi
+
+    - name: Verify installation
+      shell: bash
+      run: |
+        CARGO_PROPAGATE_FEATURES_BIN="$HOME/.cargo/bin/cargo-propagate-features"${{ runner.os == 'Windows' && '.exe' || '' }}
+        if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
+          "$CARGO_PROPAGATE_FEATURES_BIN" --version || cargo propagate-features --version
+        else
+          echo "Error: cargo-propagate-features binary not found at $CARGO_PROPAGATE_FEATURES_BIN"
+          echo "Checking PATH: $PATH"
+          echo "Checking cargo bin directory:"
+          ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
+          exit 1
+        fi

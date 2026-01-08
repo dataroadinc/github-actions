@@ -1,0 +1,29 @@
+name: Generate Build Badges
+description: Generate build artifact status badges using cargo-version-info
+
+inputs:
+  release-tag:
+    description: "Release tag (e.g., v0.0.1) - used for context, badges are generated from Cargo.toml"
+    required: false
+    default: ""
+  output-file:
+    description: "File to write badges to"
+    required: false
+    default: "BUILD_BADGES.md"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-version-info
+      uses: ./.github/actions/setup-cargo-version-info
+
+    - name: Generate build badges
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        # Use cargo-version-info to generate all badges
+        # Badges are generated from Cargo.toml metadata, not from release artifacts
+        cargo version-info badge all \
+          --output "${{ inputs.output-file }}"

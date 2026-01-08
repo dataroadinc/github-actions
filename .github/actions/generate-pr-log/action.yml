@@ -1,0 +1,146 @@
+name: Generate PR Log
+description: Generate a list of merged PRs since the last tag for release notes using cargo-version-info
+
+inputs:
+  since-tag:
+    description: "Tag to compare from (default: latest tag)"
+    required: false
+    default: ""
+  output-file:
+    description: "File to write PR log to"
+    required: false
+    default: "PR_LOG.md"
+
+outputs:
+  pr-count:
+    description: "Number of PRs found"
+    value: ${{ steps.generate.outputs.count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup cargo-version-info
+      uses: ./.github/actions/setup-cargo-version-info
+
+    - name: Generate PR log
+      id: generate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        export PATH="$HOME/.cargo/bin:$PATH"
+
+        OUTPUT_FILE="${{ inputs.output-file }}"
+        SINCE_TAG="${{ inputs.since-tag }}"
+
+        # Use cargo-version-info to generate PR log
+        # Note: pr-log command may not be fully implemented yet, but this ensures
+        # we're using the cargo plugin interface
+        if [ -n "$SINCE_TAG" ]; then
+          cargo version-info pr-log \
+            --since-tag "$SINCE_TAG" \
+            --output "$OUTPUT_FILE" || {
+            echo "⚠️ cargo version-info pr-log not yet fully implemented"
+            echo "Falling back to empty PR log"
+            echo "## Pull Requests" > "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+            echo "No merged PRs found (pr-log feature in progress)." >> "$OUTPUT_FILE"
+            echo "count=0" >> $GITHUB_OUTPUT
+            exit 0
+          }
+        else
+          cargo version-info pr-log \
+            --output "$OUTPUT_FILE" || {
+            echo "⚠️ cargo version-info pr-log not yet fully implemented"
+            echo "Falling back to empty PR log"
+            echo "## Pull Requests" > "$OUTPUT_FILE"
+            echo "" >> "$OUTPUT_FILE"
+            echo "No merged PRs found (pr-log feature in progress)." >> "$OUTPUT_FILE"
+            echo "count=0" >> $GITHUB_OUTPUT
+            exit 0
+          }
+        fi
+
+        # Extract PR count if possible (cargo-version-info may output this)
+        # For now, count lines that look like PR entries
+        COUNT=$(grep -c "^- #" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+        echo "count=${COUNT}" >> $GITHUB_OUTPUT
+        echo "Generated PR log with ${COUNT} entries"
+
+        # Original inline implementation for reference (now in script)
+        : <<'INLINE_REFERENCE'
+        OUTPUT_FILE="${{ inputs.output-file }}"
+        SINCE_TAG="${{ inputs.since-tag }}"
+
+        # If no tag specified, get latest tag
+        if [ -z "$SINCE_TAG" ]; then
+          SINCE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        fi
+
+        echo "Generating PR log since tag: ${SINCE_TAG:-<beginning>}"
+
+        # Get commit SHAs since tag
+        if [ -n "$SINCE_TAG" ]; then
+          TAG_SHA=$(git rev-list -n 1 "$SINCE_TAG" 2>/dev/null || echo "")
+          if [ -n "$TAG_SHA" ]; then
+            COMMIT_SHAS=$(git log --format="%H" ${TAG_SHA}..HEAD)
+          else
+            COMMIT_SHAS=$(git log --format="%H")
+          fi
+        else
+          COMMIT_SHAS=$(git log --format="%H")
+        fi
+
+        # Get all merged PRs (more efficient than searching individually)
+        echo "Fetching merged PRs..."
+        ALL_PRS=$(gh pr list --state merged --json number,title,mergeCommit --limit 100) || {
+          echo "Error: Failed to fetch merged PRs"
+          echo "No merged PRs found." >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          echo "count=0" >> $GITHUB_OUTPUT
+          exit 0
+        }
+
+        echo "Fetched PRs, checking jq..."
+        if ! command -v jq &> /dev/null; then
+          echo "Error: jq not found"
+          echo "No merged PRs found." >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          echo "count=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Find PRs whose merge commit is in our commit range
+        echo "## Pull Requests" > "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+
+        COUNT=0
+        # Create associative array of commit SHAs for fast lookup
+        declare -A COMMIT_MAP
+        for sha in $COMMIT_SHAS; do
+          COMMIT_MAP[$sha]=1
+        done
+
+        # Check each PR to see if its merge commit is in our range
+        PR_COUNT=$(echo "$ALL_PRS" | jq 'length')
+        for ((i=0; i<PR_COUNT; i++)); do
+          MERGE_SHA=$(echo "$ALL_PRS" | jq -r ".[$i].mergeCommit.oid // empty")
+
+          if [ -n "$MERGE_SHA" ] && [ -n "${COMMIT_MAP[$MERGE_SHA]}" ]; then
+            PR_NUMBER=$(echo "$ALL_PRS" | jq -r ".[$i].number")
+            PR_TITLE=$(echo "$ALL_PRS" | jq -r ".[$i].title")
+            echo "- #${PR_NUMBER}: ${PR_TITLE}" >> "$OUTPUT_FILE"
+            ((COUNT++))
+          fi
+        done
+
+        if [ "$COUNT" -eq 0 ]; then
+          echo "No merged PRs found since ${SINCE_TAG:-beginning}." >> "$OUTPUT_FILE"
+        fi
+
+        echo "" >> "$OUTPUT_FILE"
+        echo "count=${COUNT}" >> $GITHUB_OUTPUT
+        echo "Generated PR log with ${COUNT} entries"
+        cat "$OUTPUT_FILE"
+        INLINE_REFERENCE

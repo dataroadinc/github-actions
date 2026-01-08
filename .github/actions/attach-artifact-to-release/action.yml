@@ -1,0 +1,76 @@
+name: Attach Artifact to Release
+description: Attach build artifact to release and regenerate full release page
+
+inputs:
+  release-tag:
+    description: 'Release tag (e.g., v0.0.1)'
+    required: true
+  artifact-name:
+    description: 'Artifact name (matches upload-artifact name)'
+    required: true
+  artifact-path:
+    description: 'Path to artifact file or directory'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Attach artifact to release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUNNER_OS: ${{ runner.os }}
+      run: |
+        TAG="${{ inputs.release-tag }}"
+        ARTIFACT_NAME="${{ inputs.artifact-name }}"
+        ARTIFACT_PATH="${{ inputs.artifact-path }}"
+
+        echo "Attaching ${ARTIFACT_NAME} to release ${TAG}..."
+
+        # Check if release exists
+        if ! gh release view "$TAG" >/dev/null 2>&1; then
+          echo "Release $TAG not found, skipping"
+          exit 0
+        fi
+
+        # Package artifact as zip with correct name
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          # Get Windows temp directory via PowerShell and convert to Unix-style path for bash
+          UPLOAD_DIR=$(powershell -Command "[System.IO.Path]::GetTempPath()" | tr -d '\r\n' | sed 's|\\|/|g')release-upload
+          # Remove trailing slash if present
+          UPLOAD_DIR="${UPLOAD_DIR%/}"
+        else
+          UPLOAD_DIR="/tmp/release-upload"
+        fi
+        mkdir -p "$UPLOAD_DIR"
+
+        if [ -f "$ARTIFACT_PATH" ]; then
+          cp "$ARTIFACT_PATH" "$UPLOAD_DIR/${ARTIFACT_NAME}"
+        elif [ -d "$ARTIFACT_PATH" ]; then
+          ZIP_PATH="$UPLOAD_DIR/${ARTIFACT_NAME}.zip"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # Use PowerShell Compress-Archive on Windows
+            # Convert Unix-style paths to Windows-style for PowerShell
+            ARTIFACT_PATH_WIN=$(echo "$ARTIFACT_PATH" | sed 's|/|\\|g')
+            ZIP_PATH_WIN=$(echo "$ZIP_PATH" | sed 's|/|\\|g')
+            powershell -Command "Compress-Archive -Path '$ARTIFACT_PATH_WIN\*' -DestinationPath '$ZIP_PATH_WIN' -Force"
+          else
+            # Use zip command on Linux/macOS
+            cd "$ARTIFACT_PATH"
+            zip -r "$ZIP_PATH" .
+            cd -
+          fi
+        else
+          echo "Warning: Artifact not found at $ARTIFACT_PATH"
+          exit 0
+        fi
+
+        # Upload to release
+        gh release upload "$TAG" "$UPLOAD_DIR"/* --clobber
+        echo "✓ Attached ${ARTIFACT_NAME}"
+
+    - name: Regenerate release page
+      uses: ./.github/actions/generate-release-page
+      with:
+        release-tag: ${{ inputs.release-tag }}
+

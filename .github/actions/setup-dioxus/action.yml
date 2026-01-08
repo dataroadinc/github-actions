@@ -1,0 +1,66 @@
+name: Setup Dioxus CLI
+description: Install Dioxus CLI with caching
+
+inputs:
+  version:
+    description: 'Dioxus CLI version to install (e.g., 0.7.2)'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Dioxus CLI
+      uses: actions/cache@v4
+      id: cache-dx
+      with:
+        path: |
+          ~/.cargo/bin/dx
+          ~/.cargo/bin/dx.exe
+        key: dioxus-cli-prebuilt-v${{ inputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Download Dioxus CLI if not cached
+      if: steps.cache-dx.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        # Determine platform and archive format
+        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+          ARCH=$(uname -m)
+          if [[ "${ARCH}" == "aarch64" ]] || [[ "${ARCH}" == "arm64" ]]; then
+            PLATFORM="aarch64-unknown-linux-gnu"
+          elif [[ "${ARCH}" == "x86_64" ]]; then
+            PLATFORM="x86_64-unknown-linux-gnu"
+          fi
+          ARCHIVE="tar.gz"
+        elif [[ "$OSTYPE" == "darwin"* ]]; then
+          if [[ "$(uname -m)" == "arm64" ]]; then
+            PLATFORM="aarch64-apple-darwin"
+          else
+            PLATFORM="x86_64-apple-darwin"
+          fi
+          ARCHIVE="tar.gz"
+        elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+          PLATFORM="x86_64-pc-windows-msvc"
+          ARCHIVE="zip"
+        fi
+
+        # Download and extract based on archive type
+        VERSION="${{ inputs.version }}"
+        if [[ "$ARCHIVE" == "zip" ]]; then
+          curl -fsSL "https://github.com/DioxusLabs/dioxus/releases/download/v${VERSION}/dx-${PLATFORM}.zip" -o dx.zip
+          unzip -q dx.zip
+          mkdir -p ~/.cargo/bin
+          mv dx.exe ~/.cargo/bin/dx.exe
+          rm dx.zip
+        else
+          curl -fsSL "https://github.com/DioxusLabs/dioxus/releases/download/v${VERSION}/dx-${PLATFORM}.tar.gz" -o dx.tar.gz
+          tar -xzf dx.tar.gz
+          mkdir -p ~/.cargo/bin
+          mv dx ~/.cargo/bin/dx
+          chmod +x ~/.cargo/bin/dx
+          rm dx.tar.gz
+        fi
+
+    - name: Add cargo bin to PATH
+      shell: bash
+      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
