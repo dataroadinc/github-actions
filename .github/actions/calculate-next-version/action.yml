@@ -16,7 +16,7 @@ runs:
   using: composite
   steps:
     - name: Setup cargo-version-info
-      uses: ./.github/actions/setup-cargo-version-info
+      uses: dataroadinc/github-actions/.github/actions/setup-cargo-version-info@v0.0.1
 
     - name: Calculate next patch version
       id: calc

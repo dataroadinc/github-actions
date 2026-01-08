@@ -11,7 +11,7 @@ runs:
   using: composite
   steps:
     - name: Setup cargo-binstall
-      uses: ./.github/actions/setup-cargo-binstall
+      uses: dataroadinc/github-actions/.github/actions/setup-cargo-binstall@v0.0.1
 
     - name: Determine version
       id: version
