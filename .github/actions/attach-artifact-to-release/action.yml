@@ -3,13 +3,13 @@ description: Attach build artifact to release and regenerate full release page
 
 inputs:
   release-tag:
-    description: 'Release tag (e.g., v0.0.1)'
+    description: "Release tag (e.g., v0.0.1)"
     required: true
   artifact-name:
-    description: 'Artifact name (matches upload-artifact name)'
+    description: "Artifact name (matches upload-artifact name)"
     required: true
   artifact-path:
-    description: 'Path to artifact file or directory'
+    description: "Path to artifact file or directory"
     required: true
 
 runs:
@@ -73,4 +73,3 @@ runs:
       uses: dataroadinc/github-actions/.github/actions/generate-release-page@v0.0.1
       with:
         release-tag: ${{ inputs.release-tag }}
-
