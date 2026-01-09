@@ -30,12 +30,12 @@ Reference actions using the path syntax:
 
 ```yaml
 - name: Setup Cocogitto
-  uses: dataroadinc/github-actions/.github/actions/setup-cocogitto@v0.0.1
+  uses: dataroadinc/github-actions/.github/actions/setup-cocogitto@main
   with:
     version: 6.5.0 # Optional, defaults to env var or 6.5.0
 
 - name: Generate changelog
-  uses: dataroadinc/github-actions/.github/actions/generate-changelog@v0.0.1
+  uses: dataroadinc/github-actions/.github/actions/generate-changelog@main
   with:
     release-tag: v0.1.0
 ```
@@ -43,7 +43,7 @@ Reference actions using the path syntax:
 ## Versioning
 
 - **Initial release**: `v0.0.1`
-- Use `@v0.0.1` until all bugs are ironed out
+- Use `@main` until all bugs are ironed out
 - After stabilization, bump to `v1.0.0` and use `@v1` going forward
 
 ## License
