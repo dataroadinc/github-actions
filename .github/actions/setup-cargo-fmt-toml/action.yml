@@ -111,7 +111,8 @@ runs:
       run: |
         CARGO_FMT_TOML_BIN="$HOME/.cargo/bin/cargo-fmt-toml"${{ runner.os == 'Windows' && '.exe' || '' }}
         if [ -f "$CARGO_FMT_TOML_BIN" ]; then
-          "$CARGO_FMT_TOML_BIN" --version || cargo fmt-toml --version
+          # Use cargo subcommand pattern for verification
+          cargo fmt-toml --help > /dev/null 2>&1 && echo "✓ cargo fmt-toml verified"
         else
           echo "Error: cargo-fmt-toml binary not found at $CARGO_FMT_TOML_BIN"
           echo "Checking PATH: $PATH"

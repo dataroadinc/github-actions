@@ -106,7 +106,8 @@ runs:
       run: |
         CARGO_PROPAGATE_FEATURES_BIN="$HOME/.cargo/bin/cargo-propagate-features"${{ runner.os == 'Windows' && '.exe' || '' }}
         if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
-          "$CARGO_PROPAGATE_FEATURES_BIN" --version || cargo propagate-features --version
+          # Use cargo subcommand pattern for verification
+          cargo propagate-features --help > /dev/null 2>&1 && echo "✓ cargo propagate-features verified"
         else
           echo "Error: cargo-propagate-features binary not found at $CARGO_PROPAGATE_FEATURES_BIN"
           echo "Checking PATH: $PATH"
