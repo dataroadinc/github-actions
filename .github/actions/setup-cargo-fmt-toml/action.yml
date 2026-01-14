@@ -110,12 +110,10 @@ runs:
       shell: bash
       run: |
         CARGO_FMT_TOML_BIN="$HOME/.cargo/bin/cargo-fmt-toml"${{ runner.os == 'Windows' && '.exe' || '' }}
-        if [ -f "$CARGO_FMT_TOML_BIN" ]; then
-          # Use cargo subcommand pattern for verification
-          cargo fmt-toml --help > /dev/null 2>&1 && echo "✓ cargo fmt-toml verified"
+        if [ -f "$CARGO_FMT_TOML_BIN" ] && [ -x "$CARGO_FMT_TOML_BIN" ]; then
+          echo "✓ cargo-fmt-toml binary installed at $CARGO_FMT_TOML_BIN"
         else
-          echo "Error: cargo-fmt-toml binary not found at $CARGO_FMT_TOML_BIN"
-          echo "Checking PATH: $PATH"
+          echo "Error: cargo-fmt-toml binary not found or not executable at $CARGO_FMT_TOML_BIN"
           echo "Checking cargo bin directory:"
           ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
           exit 1

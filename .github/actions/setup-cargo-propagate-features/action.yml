@@ -105,12 +105,10 @@ runs:
       shell: bash
       run: |
         CARGO_PROPAGATE_FEATURES_BIN="$HOME/.cargo/bin/cargo-propagate-features"${{ runner.os == 'Windows' && '.exe' || '' }}
-        if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
-          # Use cargo subcommand pattern for verification
-          cargo propagate-features --help > /dev/null 2>&1 && echo "✓ cargo propagate-features verified"
+        if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ] && [ -x "$CARGO_PROPAGATE_FEATURES_BIN" ]; then
+          echo "✓ cargo-propagate-features binary installed at $CARGO_PROPAGATE_FEATURES_BIN"
         else
-          echo "Error: cargo-propagate-features binary not found at $CARGO_PROPAGATE_FEATURES_BIN"
-          echo "Checking PATH: $PATH"
+          echo "Error: cargo-propagate-features binary not found or not executable at $CARGO_PROPAGATE_FEATURES_BIN"
           echo "Checking cargo bin directory:"
           ls -la "$HOME/.cargo/bin/" || echo "Directory does not exist"
           exit 1
