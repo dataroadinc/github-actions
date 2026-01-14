@@ -55,10 +55,11 @@ runs:
           # Binary doesn't exist, install it
           echo "Binary not found, installing cargo-fmt-toml..."
           VERSION="${{ steps.version.outputs.version }}"
+          # Use --force to ensure installation even if cargo-binstall's cache thinks it's installed
           if [ "$VERSION" = "latest" ]; then
-            cargo binstall --no-confirm cargo-fmt-toml
+            cargo binstall --no-confirm --force cargo-fmt-toml
           else
-            cargo binstall --no-confirm --version "${VERSION}" cargo-fmt-toml
+            cargo binstall --no-confirm --force --version "${VERSION}" cargo-fmt-toml
           fi
 
           # Verify binary exists and make it executable
@@ -86,10 +87,11 @@ runs:
         else
           echo "⚠ Cached binary not found at $CARGO_FMT_TOML_BIN, installing..."
           VERSION="${{ steps.version.outputs.version }}"
+          # Use --force to ensure installation even if cargo-binstall's cache thinks it's installed
           if [ "$VERSION" = "latest" ]; then
-            cargo binstall --no-confirm cargo-fmt-toml
+            cargo binstall --no-confirm --force cargo-fmt-toml
           else
-            cargo binstall --no-confirm --version "${VERSION}" cargo-fmt-toml
+            cargo binstall --no-confirm --force --version "${VERSION}" cargo-fmt-toml
           fi
 
           # Verify binary exists and make it executable
