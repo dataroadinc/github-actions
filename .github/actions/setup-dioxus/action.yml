@@ -5,6 +5,10 @@ inputs:
   version:
     description: 'Dioxus CLI version to install (e.g., 0.7.2)'
     required: true
+  build-from-source:
+    description: 'Build from source instead of downloading pre-built binary (fixes workspace parsing issues)'
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -16,10 +20,19 @@ runs:
         path: |
           ~/.cargo/bin/dx
           ~/.cargo/bin/dx.exe
-        key: dioxus-cli-prebuilt-v${{ inputs.version }}-${{ runner.os }}-${{ runner.arch }}
+        key: dioxus-cli-${{ inputs.build-from-source == 'true' && 'source' || 'prebuilt' }}-v${{ inputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Build Dioxus CLI from source
+      if: steps.cache-dx.outputs.cache-hit != 'true' && inputs.build-from-source == 'true'
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        echo "Building dioxus-cli v${VERSION} from source..."
+        cargo install dioxus-cli --version "=${VERSION}" --locked
+        echo "✓ Built dioxus-cli v${VERSION} from source"
 
     - name: Download Dioxus CLI if not cached
-      if: steps.cache-dx.outputs.cache-hit != 'true'
+      if: steps.cache-dx.outputs.cache-hit != 'true' && inputs.build-from-source != 'true'
       shell: bash
       run: |
         # Determine platform and archive format
