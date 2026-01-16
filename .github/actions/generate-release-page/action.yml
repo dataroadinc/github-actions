@@ -16,14 +16,45 @@ runs:
     - name: Setup cargo-version-info
       uses: dataroadinc/github-actions/.github/actions/setup-cargo-version-info@main
 
+    - name: Calculate previous tag
+      id: prev-tag
+      shell: bash
+      run: |
+        # Get the previous tag before the current release tag
+        CURRENT_TAG="${{ inputs.release-tag }}"
+        # List all version tags sorted by version, get the one before current
+        PREV_TAG=$(git tag -l 'v*' | sort -V | grep -B1 "^${CURRENT_TAG}$" | head -1 || echo "")
+
+        if [ "$PREV_TAG" = "$CURRENT_TAG" ] || [ -z "$PREV_TAG" ]; then
+          # No previous tag found, try to get the most recent tag before current
+          PREV_TAG=$(git tag -l 'v*' | sort -V | tail -1 || echo "")
+        fi
+
+        if [ -z "$PREV_TAG" ]; then
+          echo "Warning: No previous tag found, using initial commit"
+          PREV_TAG=""
+        fi
+
+        echo "previous-tag=$PREV_TAG" >> $GITHUB_OUTPUT
+        echo "Previous tag: $PREV_TAG"
+
     - name: Generate release page
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
+        PREV_TAG="${{ steps.prev-tag.outputs.previous-tag }}"
+
         # Use cargo-version-info to generate complete release page
         # This combines badges, PR log, and changelog
-        cargo version-info release-page \
-          --since-tag "${{ inputs.release-tag }}" \
-          --output "${{ inputs.output-file }}"
+        if [ -n "$PREV_TAG" ]; then
+          cargo version-info release-page \
+            --for-version "${{ inputs.release-tag }}" \
+            --since-tag "$PREV_TAG" \
+            --output "${{ inputs.output-file }}"
+        else
+          # No previous tag, generate without changelog
+          echo "# Release ${{ inputs.release-tag }}" > "${{ inputs.output-file }}"
+          echo "Initial release" >> "${{ inputs.output-file }}"
+        fi
