@@ -3,7 +3,7 @@ description: Install dotenvage with caching for environment file processing
 
 inputs:
   version:
-    description: "Version to install (e.g., 0.0.9). Overrides env var."
+    description: "Version to install (e.g., 0.2.2). Overrides env var."
     required: false
     default: ""
 
@@ -20,7 +20,7 @@ runs:
         # Priority: input > env var > default
         VERSION="${{ inputs.version }}"
         if [ -z "$VERSION" ]; then
-          VERSION="${DOTENVAGE_VERSION:-0.0.9}"
+          VERSION="${DOTENVAGE_VERSION:-0.2.2}"
         fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "Installing dotenvage version: ${VERSION}"
