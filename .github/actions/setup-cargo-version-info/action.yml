@@ -61,6 +61,18 @@ runs:
             cargo binstall --no-confirm --version "${VERSION}" cargo-version-info
           fi
 
+          # If still not found, force reinstall (cargo-binstall may think it's installed
+          # from stale .crates.toml metadata restored by Swatinem/rust-cache, but the
+          # actual binary is missing)
+          if [ ! -f "$CARGO_VERSION_INFO_BIN" ]; then
+            echo "Binary still not found after install, forcing reinstall..."
+            if [ "$VERSION" = "latest" ]; then
+              cargo binstall --no-confirm --force cargo-version-info
+            else
+              cargo binstall --no-confirm --force --version "${VERSION}" cargo-version-info
+            fi
+          fi
+
           # Verify binary exists and make it executable
           if [ -f "$CARGO_VERSION_INFO_BIN" ]; then
             chmod +x "$CARGO_VERSION_INFO_BIN"
@@ -85,7 +97,7 @@ runs:
           echo "✓ Ensured cached cargo-version-info binary is executable"
         else
           echo "⚠ Cached binary not found at $CARGO_VERSION_INFO_BIN, installing..."
-          cargo binstall --no-confirm cargo-version-info
+          cargo binstall --no-confirm --force cargo-version-info
 
           # Verify binary exists and make it executable
           if [ -f "$CARGO_VERSION_INFO_BIN" ]; then
