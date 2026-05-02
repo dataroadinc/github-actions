@@ -27,10 +27,10 @@ on:
         type: string
         default: library
       test-threads:
-        description: "If >0, pass --test-threads=N to cargo test (e.g. 1 for PTY-sensitive tests)"
+        description: "If non-empty, pass --test-threads=N to cargo test (e.g. 1 for PTY-sensitive tests)"
         required: false
-        type: number
-        default: 0
+        type: string
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
@@ -85,7 +85,7 @@ jobs:
         env:
           TEST_THREADS: ${{ inputs.test-threads }}
         run: |
-          if [ "${TEST_THREADS:-0}" -gt 0 ]; then
+          if [ -n "$TEST_THREADS" ]; then
             cargo test -- --test-threads="$TEST_THREADS"
           else
             cargo test
