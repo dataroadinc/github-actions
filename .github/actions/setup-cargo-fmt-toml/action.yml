@@ -18,12 +18,27 @@ runs:
       shell: bash
       run: |
         # Priority: input > env var > default (latest)
-        VERSION="${{ inputs.version }}"
-        if [ -z "$VERSION" ]; then
-          VERSION="${CARGO_FMT_TOML_VERSION:-latest}"
+        REQUESTED="${{ inputs.version }}"
+        if [ -z "$REQUESTED" ]; then
+          REQUESTED="${CARGO_FMT_TOML_VERSION:-latest}"
         fi
-        echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "Installing cargo-fmt-toml version: ${VERSION}"
+        # Resolve "latest" to a concrete version so the cache key tracks
+        # crates.io releases. A literal "latest" in the key would mask a
+        # newly-published version under the previous run's cached binary
+        # for as long as the cache lives.
+        if [ "$REQUESTED" = "latest" ]; then
+          RESOLVED=$(curl -sfL -A "dataroadinc-github-actions" \
+            "https://crates.io/api/v1/crates/cargo-fmt-toml" \
+            | jq -r '.crate.max_stable_version // empty')
+          if [ -z "$RESOLVED" ]; then
+            echo "⚠️  Could not resolve latest cargo-fmt-toml; cache will be coarse"
+            RESOLVED="latest"
+          fi
+        else
+          RESOLVED="$REQUESTED"
+        fi
+        echo "version=${RESOLVED}" >> $GITHUB_OUTPUT
+        echo "Installing cargo-fmt-toml version: ${REQUESTED} (resolved to ${RESOLVED})"
 
     - name: Ensure cargo bin directory exists
       shell: bash
