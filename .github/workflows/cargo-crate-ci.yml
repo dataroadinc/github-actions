@@ -4,19 +4,20 @@ on:
   workflow_call:
     inputs:
       crate-name:
-        description: "Crate name"
         required: true
         type: string
       kind:
-        description: "library or binary"
         required: false
         type: string
         default: library
       test-threads:
-        description: "If non-empty, pass --test-threads=N"
         required: false
         type: string
         default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   fmt:
@@ -24,4 +25,73 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - run: echo "called for ${{ inputs.crate-name }} kind=${{ inputs.kind }} threads=${{ inputs.test-threads }}"
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo +nightly fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v5
+        with:
+          path: target
+          key: ${{ runner.os }}-target-clippy-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run clippy
+        run: cargo +nightly clippy --all-targets --all-features -- -D warnings -W missing-docs
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run tests
+        shell: bash
+        env:
+          TEST_THREADS: ${{ inputs.test-threads }}
+        run: |
+          if [ -n "$TEST_THREADS" ]; then
+            cargo test -- --test-threads="$TEST_THREADS"
+          else
+            cargo test
+          fi
+      - name: Run doc tests
+        shell: bash
+        run: |
+          if cargo metadata --format-version 1 --no-deps | grep -q '"lib"'; then
+            cargo test --doc
+          else
+            echo "Skipping doc tests"
+          fi
+
+  version-check:
+    name: Check Version
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      version_changed: ${{ steps.gv.outputs.version_changed }}
+      new_version: ${{ steps.gv.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: dataroadinc/github-actions/.github/actions/get-version@main
+        id: gv
