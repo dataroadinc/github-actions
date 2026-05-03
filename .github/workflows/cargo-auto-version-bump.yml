@@ -29,6 +29,16 @@ on:
         description: "Crate name (used in the release summary URLs)"
         required: true
         type: string
+      match-mode:
+        description: |
+          How to recognise a dependency-update commit:
+            "contains" (default) — message contains "build(deps)" or "dependencies"
+            "first-line-prefix" — first line begins with "build(deps):"
+          Use the stricter prefix mode in repos where casual commits may
+          legitimately mention "dependencies" without intending to release.
+        required: false
+        type: string
+        default: contains
 
 jobs:
   check-dependency-update:
@@ -54,13 +64,31 @@ jobs:
         id: check
         env:
           MESSAGE: ${{ steps.commit.outputs.message }}
+          MATCH_MODE: ${{ inputs.match-mode }}
         run: |
-          if [[ "$MESSAGE" == *"build(deps)"* ]] || [[ "$MESSAGE" == *"dependencies"* ]]; then
-            echo "is_dependency_update=true" >> "$GITHUB_OUTPUT"
-            echo "✅ This is a dependency update"
+          match=false
+          case "$MATCH_MODE" in
+            contains)
+              if [[ "$MESSAGE" == *"build(deps)"* || "$MESSAGE" == *"dependencies"* ]]; then
+                match=true
+              fi
+              ;;
+            first-line-prefix)
+              FIRST_LINE="$(printf '%s\n' "$MESSAGE" | head -n 1)"
+              if [[ "$FIRST_LINE" =~ ^build\(deps\): ]]; then
+                match=true
+              fi
+              ;;
+            *)
+              echo "❌ Unknown match-mode: $MATCH_MODE"
+              exit 1
+              ;;
+          esac
+          echo "is_dependency_update=$match" >> "$GITHUB_OUTPUT"
+          if [ "$match" = "true" ]; then
+            echo "✅ This is a dependency update (mode=$MATCH_MODE)"
           else
-            echo "is_dependency_update=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  Not a dependency update, skipping"
+            echo "ℹ️  Not a dependency update, skipping (mode=$MATCH_MODE)"
           fi
 
   bump-version:
