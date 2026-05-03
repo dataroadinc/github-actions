@@ -1,11 +1,40 @@
 name: Cargo crate CI/CD
 
+# Reusable workflow for cargo crates in the dataroadinc family.
+# Caller workflow:
+#
+#   jobs:
+#     ci:
+#       uses: dataroadinc/github-actions/.github/workflows/cargo-crate-ci.yml@main
+#       with:
+#         crate-name: my-crate
+#         kind: binary       # or library (default)
+#       secrets: inherit
+#
+# Pipeline: fmt -> clippy -> test (3 OS) -> version-check -> release ->
+# (binary only) build-and-upload-binaries.
+
 on:
   workflow_call:
     inputs:
       crate-name:
+        description: "Crate name (must match [package].name and the binary name for kind=binary)"
         required: true
         type: string
+      kind:
+        description: "library (default) or binary; binary triggers cross-platform binary uploads"
+        required: false
+        type: string
+        default: library
+      test-threads:
+        description: "If non-empty, pass --test-threads=N to cargo test (e.g. 1 for PTY-sensitive tests)"
+        required: false
+        type: string
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   fmt:
@@ -13,4 +42,154 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - run: echo "called for ${{ inputs.crate-name }}"
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo +nightly fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v5
+        with:
+          path: target
+          key: ${{ runner.os }}-target-clippy-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run clippy
+        run: cargo +nightly clippy --all-targets --all-features -- -D warnings -W missing-docs
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run tests
+        shell: bash
+        env:
+          TEST_THREADS: ${{ inputs.test-threads }}
+        run: |
+          if [ -n "$TEST_THREADS" ]; then
+            cargo test -- --test-threads="$TEST_THREADS"
+          else
+            cargo test
+          fi
+      - name: Run doc tests
+        shell: bash
+        run: |
+          if cargo metadata --format-version 1 --no-deps | grep -q '"lib"'; then
+            cargo test --doc
+          else
+            echo "Skipping doc tests: package has no library target"
+          fi
+
+  version-check:
+    name: Check Version
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      version_changed: ${{ steps.gv.outputs.version_changed }}
+      new_version: ${{ steps.gv.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: dataroadinc/github-actions/.github/actions/get-version@main
+        id: gv
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy, test, version-check]
+    if: needs.version-check.outputs.version_changed == 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - uses: dataroadinc/github-actions/.github/actions/setup-cargo-binstall@main
+
+      - uses: dataroadinc/github-actions/.github/actions/setup-cocogitto@main
+
+      - name: Create and push release tag
+        env:
+          VERSION: ${{ needs.version-check.outputs.new_version }}
+        run: |
+          TAG="v$VERSION"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "✅ Created and pushed tag $TAG"
+          fi
+
+      - name: Generate changelog
+        env:
+          VERSION: ${{ needs.version-check.outputs.new_version }}
+        run: cog changelog --at "v$VERSION" > CHANGELOG.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.version-check.outputs.new_version }}
+          name: v${{ needs.version-check.outputs.new_version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      # Treats "already exists on crates.io" as success so the job is
+      # safely re-runnable. See dotenvage commit 0e30aa3 for context.
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO }}
+          VERSION: ${{ needs.version-check.outputs.new_version }}
+          CRATE: ${{ inputs.crate-name }}
+        run: |
+          rc=0
+          LOG=$(cargo publish --allow-dirty 2>&1) || rc=$?
+          echo "$LOG"
+          if [ "$rc" -eq 0 ]; then exit 0; fi
+          if echo "$LOG" | grep -q "already exists on crates.io"; then
+            echo "ℹ️  $CRATE $VERSION already on crates.io, skipping"
+            exit 0
+          fi
+          exit "$rc"
+
+      - name: Release summary
+        env:
+          VERSION: ${{ needs.version-check.outputs.new_version }}
+          CRATE: ${{ inputs.crate-name }}
+        run: |
+          echo "🎉 Successfully released v$VERSION"
+          echo "📦 https://crates.io/crates/$CRATE"
+          echo "📝 https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+          echo "📚 https://docs.rs/$CRATE/$VERSION"
