@@ -49,7 +49,7 @@ runs:
       run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Cache cargo-fmt-toml binary
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       id: cache-cargo-fmt-toml
       with:
         path: ~/.cargo/bin/cargo-fmt-toml${{ runner.os == 'Windows' && '.exe' || '' }}

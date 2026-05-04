@@ -47,7 +47,7 @@ None
 
 ```yaml
 - name: Download artifacts
-  uses: actions/download-artifact@v4
+  uses: actions/download-artifact@v7
   with:
     path: artifacts/
 

@@ -49,7 +49,7 @@ runs:
       run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Cache cargo-version-info binary
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       id: cache-cargo-version-info
       with:
         path: ~/.cargo/bin/cargo-version-info${{ runner.os == 'Windows' && '.exe' || '' }}
