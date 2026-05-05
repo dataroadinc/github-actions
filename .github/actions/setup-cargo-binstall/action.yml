@@ -4,12 +4,32 @@ description: Install cargo-binstall for fast binary installations with caching
 runs:
   using: composite
   steps:
+    - name: Resolve latest cargo-binstall version
+      id: version
+      shell: bash
+      run: |
+        # cargo-binstall is installed from GitHub Releases (not crates.io),
+        # so resolve "latest" via the GitHub API and use the concrete tag in
+        # the cache key. Otherwise the literal string "latest" pins runners
+        # to whichever binary first populated the cache, masking new
+        # releases for the cache lifetime.
+        RESOLVED=$(curl -sfL -A "dataroadinc-github-actions" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/latest" \
+          | jq -r '.tag_name // empty')
+        if [ -z "$RESOLVED" ]; then
+          echo "⚠️  Could not resolve latest cargo-binstall tag; cache will be coarse"
+          RESOLVED="latest"
+        fi
+        echo "version=${RESOLVED}" >> "$GITHUB_OUTPUT"
+        echo "cargo-binstall version: ${RESOLVED}"
+
     - name: Cache cargo-binstall binary
       uses: actions/cache@v5
       id: cache-binstall
       with:
         path: ~/.cargo/bin/cargo-binstall${{ runner.os == 'Windows' && '.exe' || '' }}
-        key: cargo-binstall-latest-${{ runner.os }}-${{ runner.arch }}
+        key: cargo-binstall-${{ steps.version.outputs.version }}-${{ runner.os }}-${{ runner.arch }}
 
     - name: Install cargo-binstall if not cached
       if: steps.cache-binstall.outputs.cache-hit != 'true'
