@@ -47,7 +47,7 @@ jobs:
     outputs:
       is_dependency_update: ${{ steps.check.outputs.is_dependency_update }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
@@ -97,7 +97,7 @@ jobs:
     needs: check-dependency-update
     if: needs.check-dependency-update.outputs.is_dependency_update == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
