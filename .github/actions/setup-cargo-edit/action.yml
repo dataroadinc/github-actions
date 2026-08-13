@@ -11,7 +11,7 @@ runs:
   using: composite
   steps:
     - name: Setup cargo-binstall
-      uses: dataroadinc/github-actions/.github/actions/setup-cargo-binstall@main
+      uses: legra-ai/github-actions/.github/actions/setup-cargo-binstall@main
 
     - name: Determine version
       id: version

@@ -1,4 +1,4 @@
-# dataroadinc/github-actions
+# legra-ai/github-actions
 
 Reusable GitHub Actions for Rust CI/CD workflows.
 
@@ -30,12 +30,12 @@ Reference actions using the path syntax:
 
 ```yaml
 - name: Setup Cocogitto
-  uses: dataroadinc/github-actions/.github/actions/setup-cocogitto@main
+  uses: legra-ai/github-actions/.github/actions/setup-cocogitto@main
   with:
     version: 6.5.0 # Optional, defaults to env var or 6.5.0
 
 - name: Generate changelog
-  uses: dataroadinc/github-actions/.github/actions/generate-changelog@main
+  uses: legra-ai/github-actions/.github/actions/generate-changelog@main
   with:
     release-tag: v0.1.0
 ```

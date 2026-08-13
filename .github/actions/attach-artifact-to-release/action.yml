@@ -70,6 +70,6 @@ runs:
         echo "✓ Attached ${ARTIFACT_NAME}"
 
     - name: Regenerate release page
-      uses: dataroadinc/github-actions/.github/actions/generate-release-page@main
+      uses: legra-ai/github-actions/.github/actions/generate-release-page@main
       with:
         release-tag: ${{ inputs.release-tag }}

@@ -14,7 +14,7 @@ runs:
   using: composite
   steps:
     - name: Setup cargo-version-info
-      uses: dataroadinc/github-actions/.github/actions/setup-cargo-version-info@main
+      uses: legra-ai/github-actions/.github/actions/setup-cargo-version-info@main
 
     - name: Generate changelog
       shell: bash
