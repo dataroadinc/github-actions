@@ -206,7 +206,7 @@ jobs:
       - name: Generate changelog
         uses: legra-ai/github-actions/.github/actions/generate-changelog@main
         with:
-          release-tag: v${{ env.NEW_VERSION }}
+          revision: HEAD
           output-file: CHANGELOG_RELEASE.md
 
       - name: Create GitHub Release
