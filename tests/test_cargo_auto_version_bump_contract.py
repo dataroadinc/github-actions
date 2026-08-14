@@ -23,6 +23,11 @@ class CargoAutoVersionBumpContractTests(unittest.TestCase):
         self.assertIn("          revision: HEAD\n", WORKFLOW)
         self.assertNotIn("          release-tag: v${{ env.NEW_VERSION }}\n", WORKFLOW)
 
+    def test_manifest_version_is_the_bump_authority(self) -> None:
+        """Automatic bumps must not derive a downgrade from stale Git tags."""
+        self.assertIn("cargo version-info bump --patch", WORKFLOW)
+        self.assertNotIn("cog bump --patch", WORKFLOW)
+
 
 if __name__ == "__main__":
     unittest.main()
