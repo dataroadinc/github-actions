@@ -71,9 +71,9 @@ runs:
           echo "Binary not found, installing cargo-version-info..."
           VERSION="${{ steps.version.outputs.version }}"
           if [ "$VERSION" = "latest" ]; then
-            cargo binstall --no-confirm cargo-version-info
+            cargo binstall --locked --no-confirm cargo-version-info
           else
-            cargo binstall --no-confirm --version "${VERSION}" cargo-version-info
+            cargo binstall --locked --no-confirm --version "${VERSION}" cargo-version-info
           fi
 
           # If still not found, force reinstall (cargo-binstall may think it's installed
@@ -82,9 +82,9 @@ runs:
           if [ ! -f "$CARGO_VERSION_INFO_BIN" ]; then
             echo "Binary still not found after install, forcing reinstall..."
             if [ "$VERSION" = "latest" ]; then
-              cargo binstall --no-confirm --force cargo-version-info
+              cargo binstall --locked --no-confirm --force cargo-version-info
             else
-              cargo binstall --no-confirm --force --version "${VERSION}" cargo-version-info
+              cargo binstall --locked --no-confirm --force --version "${VERSION}" cargo-version-info
             fi
           fi
 
@@ -112,7 +112,7 @@ runs:
           echo "✓ Ensured cached cargo-version-info binary is executable"
         else
           echo "⚠ Cached binary not found at $CARGO_VERSION_INFO_BIN, installing..."
-          cargo binstall --no-confirm --force cargo-version-info
+          cargo binstall --locked --no-confirm --force cargo-version-info
 
           # Verify binary exists and make it executable
           if [ -f "$CARGO_VERSION_INFO_BIN" ]; then

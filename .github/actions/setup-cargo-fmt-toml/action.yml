@@ -72,9 +72,9 @@ runs:
           VERSION="${{ steps.version.outputs.version }}"
           # Use --force to ensure installation even if cargo-binstall's cache thinks it's installed
           if [ "$VERSION" = "latest" ]; then
-            cargo binstall --no-confirm --force cargo-fmt-toml
+            cargo binstall --locked --no-confirm --force cargo-fmt-toml
           else
-            cargo binstall --no-confirm --force --version "${VERSION}" cargo-fmt-toml
+            cargo binstall --locked --no-confirm --force --version "${VERSION}" cargo-fmt-toml
           fi
 
           # Verify binary exists and make it executable
@@ -104,9 +104,9 @@ runs:
           VERSION="${{ steps.version.outputs.version }}"
           # Use --force to ensure installation even if cargo-binstall's cache thinks it's installed
           if [ "$VERSION" = "latest" ]; then
-            cargo binstall --no-confirm --force cargo-fmt-toml
+            cargo binstall --locked --no-confirm --force cargo-fmt-toml
           else
-            cargo binstall --no-confirm --force --version "${VERSION}" cargo-fmt-toml
+            cargo binstall --locked --no-confirm --force --version "${VERSION}" cargo-fmt-toml
           fi
 
           # Verify binary exists and make it executable
