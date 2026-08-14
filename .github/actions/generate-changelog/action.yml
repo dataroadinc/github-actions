@@ -2,8 +2,8 @@ name: Generate Changelog
 description: Generate changelog from conventional commits using cargo-version-info
 
 inputs:
-  release-tag:
-    description: "Release tag (e.g., v0.0.1)"
+  revision:
+    description: "Existing Git revision to generate the changelog at"
     required: true
   output-file:
     description: "File to write changelog to"
@@ -22,7 +22,8 @@ runs:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
-        # Use cargo-version-info to generate changelog for the specified tag
+        # The revision must already exist; release workflows may create the tag
+        # only after this action has generated the release body.
         cargo version-info changelog \
-          --at "${{ inputs.release-tag }}" \
+          --at "${{ inputs.revision }}" \
           --output "${{ inputs.output-file }}"
