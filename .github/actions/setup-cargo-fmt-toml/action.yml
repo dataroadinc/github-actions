@@ -27,7 +27,7 @@ runs:
         # newly-published version under the previous run's cached binary
         # for as long as the cache lives.
         if [ "$REQUESTED" = "latest" ]; then
-          RESOLVED=$(curl -sfL -A "dataroadinc-github-actions" \
+          RESOLVED=$(curl -sfL -A "legra-ai-github-actions" \
             "https://crates.io/api/v1/crates/cargo-fmt-toml" \
             | jq -r '.crate.max_stable_version // empty')
           if [ -z "$RESOLVED" ]; then
@@ -49,7 +49,7 @@ runs:
       run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
     - name: Cache cargo-fmt-toml binary
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       id: cache-cargo-fmt-toml
       with:
         path: ~/.cargo/bin/cargo-fmt-toml${{ runner.os == 'Windows' && '.exe' || '' }}
