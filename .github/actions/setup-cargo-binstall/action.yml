@@ -13,7 +13,7 @@ runs:
         # the cache key. Otherwise the literal string "latest" pins runners
         # to whichever binary first populated the cache, masking new
         # releases for the cache lifetime.
-        RESOLVED=$(curl -sfL -A "dataroadinc-github-actions" \
+        RESOLVED=$(curl -sfL -A "legra-ai-github-actions" \
           -H "Accept: application/vnd.github+json" \
           "https://api.github.com/repos/cargo-bins/cargo-binstall/releases/latest" \
           | jq -r '.tag_name // empty')
@@ -25,7 +25,7 @@ runs:
         echo "cargo-binstall version: ${RESOLVED}"
 
     - name: Cache cargo-binstall binary
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       id: cache-binstall
       with:
         path: ~/.cargo/bin/cargo-binstall${{ runner.os == 'Windows' && '.exe' || '' }}

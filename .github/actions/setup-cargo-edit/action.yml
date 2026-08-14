@@ -30,7 +30,7 @@ runs:
       run: mkdir -p "$HOME/.cargo/bin"
 
     - name: Cache cargo-edit binary
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       id: cache-cargo-edit
       with:
         path: ~/.cargo/bin/cargo-set-version${{ runner.os == 'Windows' && '.exe' || '' }}
