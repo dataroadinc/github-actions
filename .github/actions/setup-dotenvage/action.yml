@@ -56,17 +56,17 @@ runs:
           echo "Binary not found, installing dotenvage..."
           VERSION="${{ steps.version.outputs.version }}"
           # Try installing specific version first
-          if ! cargo binstall --no-confirm --version "${VERSION}" dotenvage; then
+          if ! cargo binstall --locked --no-confirm --version "${VERSION}" dotenvage; then
             echo "Warning: Failed to install dotenvage ${VERSION} via cargo-binstall, trying latest..."
-            cargo binstall --no-confirm dotenvage
+            cargo binstall --locked --no-confirm dotenvage
           fi
 
           # If still not found, force reinstall (cargo-binstall may think it's installed but binary missing)
           if [ ! -f "$DOTENVAGE_BIN" ]; then
             echo "Binary still not found after install, forcing reinstall..."
-            cargo binstall --no-confirm --force --version "${VERSION}" dotenvage || {
+            cargo binstall --locked --no-confirm --force --version "${VERSION}" dotenvage || {
               echo "Warning: Failed to force install dotenvage ${VERSION}, trying latest..."
-              cargo binstall --no-confirm --force dotenvage
+              cargo binstall --locked --no-confirm --force dotenvage
             }
           fi
 
@@ -96,17 +96,17 @@ runs:
           echo "⚠ Cached binary not found at $DOTENVAGE_BIN, installing..."
           VERSION="${{ steps.version.outputs.version }}"
           # Try installing specific version first
-          if ! cargo binstall --no-confirm --version "${VERSION}" dotenvage; then
+          if ! cargo binstall --locked --no-confirm --version "${VERSION}" dotenvage; then
             echo "Warning: Failed to install dotenvage ${VERSION} via cargo-binstall, trying latest..."
-            cargo binstall --no-confirm dotenvage
+            cargo binstall --locked --no-confirm dotenvage
           fi
 
           # If still not found, force reinstall
           if [ ! -f "$DOTENVAGE_BIN" ]; then
             echo "Binary still not found after install, forcing reinstall..."
-            cargo binstall --no-confirm --force --version "${VERSION}" dotenvage || {
+            cargo binstall --locked --no-confirm --force --version "${VERSION}" dotenvage || {
               echo "Warning: Failed to force install dotenvage ${VERSION}, trying latest..."
-              cargo binstall --no-confirm --force dotenvage
+              cargo binstall --locked --no-confirm --force dotenvage
             }
           fi
 

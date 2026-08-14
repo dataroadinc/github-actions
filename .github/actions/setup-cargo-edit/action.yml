@@ -43,7 +43,7 @@ runs:
         echo "Installing cargo-edit via cargo-binstall..."
         export PATH="$HOME/.cargo/bin:$PATH"
         VERSION="${{ steps.version.outputs.version }}"
-        cargo binstall --no-confirm --force --version "${VERSION}" cargo-edit
+        cargo binstall --locked --no-confirm --force --version "${VERSION}" cargo-edit
         echo "✓ cargo-edit installed"
 
     - name: Verify installation

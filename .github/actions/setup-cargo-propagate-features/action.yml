@@ -72,9 +72,9 @@ runs:
           VERSION="${{ steps.version.outputs.version }}"
           # Use --force to ensure installation even if cargo-binstall's cache thinks it's installed
           if [ "$VERSION" = "latest" ]; then
-            cargo binstall --no-confirm --force cargo-propagate-features
+            cargo binstall --locked --no-confirm --force cargo-propagate-features
           else
-            cargo binstall --no-confirm --force --version "${VERSION}" cargo-propagate-features
+            cargo binstall --locked --no-confirm --force --version "${VERSION}" cargo-propagate-features
           fi
 
           # Verify binary exists and make it executable
@@ -102,7 +102,7 @@ runs:
         else
           echo "⚠ Cached binary not found at $CARGO_PROPAGATE_FEATURES_BIN, installing..."
           # Use --force to ensure installation even if cargo-binstall's cache thinks it's installed
-          cargo binstall --no-confirm --force cargo-propagate-features
+          cargo binstall --locked --no-confirm --force cargo-propagate-features
 
           # Verify binary exists and make it executable
           if [ -f "$CARGO_PROPAGATE_FEATURES_BIN" ]; then

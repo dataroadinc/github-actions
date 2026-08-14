@@ -46,7 +46,7 @@ runs:
         echo "Installing cocogitto via cargo-binstall..."
         export PATH="$HOME/.cargo/bin:$PATH"
         VERSION="${{ steps.version.outputs.version }}"
-        cargo binstall --no-confirm --force --version "${VERSION}" cocogitto
+        cargo binstall --locked --no-confirm --force --version "${VERSION}" cocogitto
         echo "✓ cocogitto installed"
 
     - name: Verify installation
