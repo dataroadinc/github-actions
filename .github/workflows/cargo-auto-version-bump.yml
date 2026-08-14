@@ -39,6 +39,15 @@ on:
         required: false
         type: string
         default: contains
+      version-files:
+        description: |
+          Newline-delimited files changed by the version bump. Every listed
+          file must exist and is included in the verified GraphQL commit.
+        required: false
+        type: string
+        default: |
+          Cargo.toml
+          Cargo.lock
     secrets:
       CRATES_IO_TOKEN:
         description: "Token used to publish the crate to crates.io"
@@ -134,6 +143,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           EXPECTED_OID: ${{ github.sha }}
+          VERSION_FILES: ${{ inputs.version-files }}
         run: |
           HEADLINE=$(git log -1 --pretty=%s HEAD)
           BODY=$(git log -1 --pretty=%b HEAD)
@@ -146,6 +156,17 @@ jobs:
           body = os.environ.get("BODY", "").strip()
           if body:
               msg["body"] = body
+          version_files = [
+              path.strip()
+              for path in os.environ["VERSION_FILES"].splitlines()
+              if path.strip()
+          ]
+          if not version_files:
+              raise SystemExit("version-files must contain at least one path")
+          missing = [path for path in version_files if not pathlib.Path(path).is_file()]
+          if missing:
+              raise SystemExit(f"version-files do not exist: {', '.join(missing)}")
+
           payload = {
               "query": "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }",
               "variables": {
@@ -157,8 +178,8 @@ jobs:
                       "message": msg,
                       "fileChanges": {
                           "additions": [
-                              {"path": "Cargo.toml", "contents": b64("Cargo.toml")},
-                              {"path": "Cargo.lock", "contents": b64("Cargo.lock")},
+                              {"path": path, "contents": b64(path)}
+                              for path in version_files
                           ]
                       },
                       "expectedHeadOid": os.environ["EXPECTED_OID"],
