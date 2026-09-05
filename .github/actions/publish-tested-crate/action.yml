@@ -1,0 +1,22 @@
+name: Publish tested crate
+description: Publish the validated revision and verify source identity on a repeated attempt
+inputs:
+  crate:
+    required: true
+    description: Cargo package name
+  version:
+    required: true
+    description: Validated version
+  revision:
+    required: true
+    description: Validated revision
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RELEASE_CRATE: ${{ inputs.crate }}
+        RELEASE_VERSION: ${{ inputs.version }}
+        RELEASE_REVISION: ${{ inputs.revision }}
+        RELEASE_ACTION_PATH: ${{ github.action_path }}
+      run: python3 "$RELEASE_ACTION_PATH/publish.py"
