@@ -39,8 +39,11 @@ class ReleasePlanTests(unittest.TestCase):
     def test_history_is_not_limited_to_latest_commit(self):
         self.assertEqual(release.next_version('0.1.1', '0.1.1', ['fix(tree): repair', 'docs(readme): clarify']), '0.1.2')
 
-    def test_unknown_commit_type_releases_conservatively(self):
-        self.assertEqual(release.next_version('0.1.1', '0.1.1', ['Update source']), '0.1.2')
+    def test_invalid_messages_fail_even_with_manual_or_initial_version(self):
+        for latest in ['0.1.1', '0.1.0', None]:
+            for message in ['Update source', 'fix: missing scope', 'oops(core): unknown type', 'fix(core): ']:
+                with self.subTest(latest=latest, message=message), self.assertRaises(ValueError):
+                    release.next_version('0.1.1', latest, [message])
 
     def test_lower_manifest_is_refused(self):
         with self.assertRaises(ValueError):

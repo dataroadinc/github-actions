@@ -5,7 +5,7 @@ const merge = require('../.github/actions/merge-tested-dependabot/merge.cjs');
 function fixture() {
   const calls = [];
   const run = {event: 'pull_request', conclusion: 'success', head_sha: 'tested', head_branch: 'dependabot/cargo/serde', head_repository: {full_name: 'org/crate'}};
-  const pr = {number: 1, user: {login: 'dependabot[bot]'}, head: {sha: 'tested', repo: {full_name: 'org/crate'}}, base: {ref: 'main'}};
+  const pr = {number: 1, title: 'build(deps): update serde', body: 'Dependency update.', user: {login: 'dependabot[bot]'}, head: {sha: 'tested', repo: {full_name: 'org/crate'}}, base: {ref: 'main'}};
   const github = {rest: {
     pulls: {list: async () => ({data: [pr]}), merge: async args => {calls.push(args); return {data: {merged: true}};}},
     actions: {createWorkflowDispatch: async args => calls.push(args)},
@@ -18,9 +18,20 @@ test('successful CI merges only its tested head and dispatches main CI', async (
   await merge(f.github, f.context);
   assert.equal(f.calls[0].sha, 'tested');
   assert.equal(f.calls[0].merge_method, 'squash');
+  assert.equal(f.calls[0].commit_title, 'build(deps): update serde (#1)');
+  assert.equal(f.calls[0].commit_message, 'Dependency update.');
   assert.equal(f.calls[1].workflow_id, 'ci.yml');
   assert.equal(f.calls[1].ref, 'main');
 });
+
+for (const title of ['Update serde', 'build: update serde', 'oops(deps): update serde', 'fix(deps): ok\nforged']) {
+  test(`invalid current title cannot merge: ${title}`, async () => {
+    const f = fixture();
+    f.pr.title = title;
+    await assert.rejects(merge(f.github, f.context), /Conventional Commit/);
+    assert.deepEqual(f.calls, []);
+  });
+}
 
 for (const scenario of ['failed', 'updated', 'human', 'fork', 'main-run']) {
   test(`${scenario} cannot merge`, async () => {

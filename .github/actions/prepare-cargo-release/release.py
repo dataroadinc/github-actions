@@ -16,6 +16,11 @@ def version_tuple(value):
 
 
 def next_version(current, latest, messages):
+    policy = json.loads((pathlib.Path(__file__).parent.parent / 'conventional-commit/policy.json').read_text())
+    for message in messages:
+        header = message.splitlines()[0] if message else ''
+        if not re.fullmatch(policy['header_pattern'], header):
+            raise ValueError(f'Conventional Commit required: {header!r}')
     current_tuple = version_tuple(current)
     if latest is None or current_tuple > version_tuple(latest):
         return current
@@ -28,7 +33,7 @@ def next_version(current, latest, messages):
             level = max(level, 3)
         elif re.match(r'feat(?:\([^\n]+\))?:', header):
             level = max(level, 2)
-        elif not re.match(r'(?:docs|style|ci)(?:\([^\n]+\))?:|chore\(release\):', header):
+        elif not re.match(r'(?:docs|style|ci)\([^\n]+\):|chore\(release\):', header):
             level = max(level, 1)
     major, minor, patch = current_tuple
     return {0: None, 1: f'{major}.{minor}.{patch + 1}',
