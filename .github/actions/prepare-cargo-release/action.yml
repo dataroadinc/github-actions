@@ -1,0 +1,22 @@
+name: Prepare Cargo release
+description: Select the version and signed revision that every validation and publication job must use
+outputs:
+  revision:
+    description: Exact revision to test, build, tag and publish
+    value: ${{ steps.prepare.outputs.revision }}
+  version:
+    description: Manifest release version
+    value: ${{ steps.prepare.outputs.version }}
+  release:
+    description: Whether this main revision needs publication
+    value: ${{ steps.prepare.outputs.release }}
+runs:
+  using: composite
+  steps:
+    - uses: legra-ai/github-actions/.github/actions/setup-cargo-version-info@main
+    - id: prepare
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_ACTION_PATH: ${{ github.action_path }}
+      run: python3 "$RELEASE_ACTION_PATH/release.py"

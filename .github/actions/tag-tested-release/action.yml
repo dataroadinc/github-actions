@@ -1,0 +1,18 @@
+name: Tag tested release
+description: Validate the manifest and tag the exact tested revision, refusing a conflicting tag
+inputs:
+  version:
+    required: true
+    description: Validated manifest version
+  revision:
+    required: true
+    description: Full SHA that passed all repository checks
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RELEASE_VERSION: ${{ inputs.version }}
+        RELEASE_REVISION: ${{ inputs.revision }}
+        RELEASE_ACTION_PATH: ${{ github.action_path }}
+      run: python3 "$RELEASE_ACTION_PATH/tag.py"
