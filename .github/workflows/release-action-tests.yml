@@ -1,0 +1,13 @@
+name: Release action tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest discover -s tests
+      - run: node --test tests/test_dependabot_merge.cjs

@@ -1,0 +1,12 @@
+name: Merge tested Dependabot update
+description: Merge the exact Dependabot head validated by a completed CI run and dispatch main CI
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v8
+      env:
+        RELEASE_ACTION_PATH: ${{ github.action_path }}
+      with:
+        script: |
+          const merge = require(`${process.env.RELEASE_ACTION_PATH}/merge.cjs`);
+          await merge(github, context);
