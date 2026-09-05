@@ -64,7 +64,7 @@ def prepare():
             output(revision=source, release='false', version='')
             return
     manifest = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
-    package = manifest.get('workspace', {}).get('package', manifest['package'])
+    package = manifest['workspace']['package'] if 'workspace' in manifest and 'package' in manifest['workspace'] else manifest['package']
     current = package['version']
     tags = [tag for tag in run('git', 'tag', '--merged', 'HEAD', '--list', 'v*').splitlines()
             if re.fullmatch(r'v\d+\.\d+\.\d+', tag)]
@@ -90,6 +90,10 @@ def prepare():
         return
     subprocess.run(['cargo', 'version-info', 'bump', '--version', version, '--no-commit'], check=True)
     paths = run('git', 'diff', '--name-only').splitlines()
+    # Release lockfiles bind validation and publication to one dependency graph,
+    # including libraries that previously ignored Cargo.lock in development.
+    if pathlib.Path('Cargo.lock').exists() and 'Cargo.lock' not in paths:
+        paths.append('Cargo.lock')
     if 'Cargo.toml' not in paths:
         raise RuntimeError('Version bump did not update Cargo.toml')
     additions = [{'path': path, 'contents': base64.b64encode(pathlib.Path(path).read_bytes()).decode()}
