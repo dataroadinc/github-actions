@@ -1,0 +1,15 @@
+name: Conventional Commit
+description: Validate the current PR title without checking out or executing PR code
+runs:
+  using: composite
+  steps:
+    - uses: actions/github-script@v8
+      env:
+        COMMIT_ACTION_PATH: ${{ github.action_path }}
+      with:
+        script: |
+          const validate = require(`${process.env.COMMIT_ACTION_PATH}/validate.cjs`);
+          const {data: pr} = await github.rest.pulls.get({
+            ...context.repo, pull_number: context.payload.pull_request.number,
+          });
+          validate(pr.title);
