@@ -6,7 +6,6 @@ import os
 import pathlib
 import re
 import subprocess
-import sys
 import tomllib
 
 
@@ -53,9 +52,17 @@ def prepare():
         return
     remote = run('git', 'ls-remote', 'origin', 'refs/heads/main').split()[0]
     if source != remote:
-        # A newer main run includes these changes; never publish a stale base.
-        output(revision=source, release='false', version='')
-        return
+        subprocess.run(['git', 'fetch', 'origin', remote], check=True)
+        parent = run('git', 'rev-parse', f'{remote}^')
+        message = run('git', 'log', '-1', '--format=%B', remote)
+        if parent == source and message.startswith('chore(release): prepare ') and f'Release source: {source}' in message:
+            # Resume the exact version commit prepared by an earlier attempt.
+            subprocess.run(['git', 'checkout', '--detach', remote], check=True)
+            source = remote
+        else:
+            # A newer main run includes these changes; never publish a stale base.
+            output(revision=source, release='false', version='')
+            return
     manifest = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
     package = manifest.get('workspace', {}).get('package', manifest['package'])
     current = package['version']
@@ -66,7 +73,17 @@ def prepare():
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
     version = next_version(current, tag[1:] if tag else None, messages)
     if version is None:
-        output(revision=source, release='false', version=current)
+        pending = False
+        if tag and run('git', 'rev-parse', f'{tag}^{{commit}}') == source:
+            result = subprocess.run(['gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/releases/tags/{tag}'],
+                                    capture_output=True, text=True)
+            if result.returncode == 0:
+                pending = json.loads(result.stdout)['draft']
+            elif 'HTTP 404' in result.stderr:
+                pending = True
+            else:
+                raise RuntimeError(result.stderr)
+        output(revision=source, release=str(pending).lower(), version=current)
         return
     if version == current:
         output(revision=source, release='true', version=version)
