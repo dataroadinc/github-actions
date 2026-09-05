@@ -45,6 +45,16 @@ def output(**values):
             stream.write(f'{key}={value}\n')
 
 
+def release_pending(tag):
+    result = subprocess.run(['gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/releases/tags/{tag}'],
+                            capture_output=True, text=True)
+    if result.returncode == 0:
+        return json.loads(result.stdout)['draft']
+    if 'HTTP 404' in result.stderr:
+        return True
+    raise RuntimeError(result.stderr)
+
+
 def prepare():
     source = run('git', 'rev-parse', 'HEAD')
     if os.environ['GITHUB_REF'] != 'refs/heads/main':
@@ -69,21 +79,16 @@ def prepare():
     tags = [tag for tag in run('git', 'tag', '--merged', 'HEAD', '--list', 'v*').splitlines()
             if re.fullmatch(r'v\d+\.\d+\.\d+', tag)]
     tag = max(tags, key=lambda item: version_tuple(item[1:])) if tags else None
+    if tag and release_pending(tag):
+        # Finish a partial multi-registry release at its immutable source before
+        # advancing the version, even if newer main commits have arrived.
+        output(revision=run('git', 'rev-parse', f'{tag}^{{commit}}'), release='true', version=tag[1:])
+        return
     revisions = f'{tag}..HEAD' if tag else 'HEAD'
     messages = [message.strip() for message in run('git', 'log', '--format=%B%x00', revisions).split('\0') if message.strip()]
     version = next_version(current, tag[1:] if tag else None, messages)
     if version is None:
-        pending = False
-        if tag and run('git', 'rev-parse', f'{tag}^{{commit}}') == source:
-            result = subprocess.run(['gh', 'api', f'repos/{os.environ["GITHUB_REPOSITORY"]}/releases/tags/{tag}'],
-                                    capture_output=True, text=True)
-            if result.returncode == 0:
-                pending = json.loads(result.stdout)['draft']
-            elif 'HTTP 404' in result.stderr:
-                pending = True
-            else:
-                raise RuntimeError(result.stderr)
-        output(revision=source, release=str(pending).lower(), version=current)
+        output(revision=source, release='false', version=current)
         return
     if version == current:
         output(revision=source, release='true', version=version)
