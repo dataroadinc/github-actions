@@ -13,3 +13,10 @@ in `merge-tested-dependabot` and commit-history validation in
 `prepare-cargo-release`. Human squash merges must use the validated PR title.
 Repository policy must enforce the check where the authorized release writer
 can still create version commits; do not silently weaken existing protections.
+
+## Release pull requests
+
+A pull request opened by the release pipeline with the workflow token raises no
+`pull_request` event. Give the workflow a `workflow_dispatch` trigger with a
+`pull_request` input and pass it as `pull-request`; the action then validates
+that PR's title instead of the event payload's.

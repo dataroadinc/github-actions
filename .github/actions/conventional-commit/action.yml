@@ -1,15 +1,24 @@
 name: Conventional Commit
-description: Validate the current PR title without checking out or executing PR code
+description: Validate a PR title without checking out or executing PR code
+inputs:
+  pull-request:
+    required: false
+    default: ''
+    description: PR number to validate when not running on a pull_request event (e.g. a workflow_dispatch for a release PR)
 runs:
   using: composite
   steps:
     - uses: actions/github-script@v8
       env:
         COMMIT_ACTION_PATH: ${{ github.action_path }}
+        COMMIT_PULL_REQUEST: ${{ inputs.pull-request }}
       with:
         script: |
           const validate = require(`${process.env.COMMIT_ACTION_PATH}/validate.cjs`);
-          const {data: pr} = await github.rest.pulls.get({
-            ...context.repo, pull_number: context.payload.pull_request.number,
-          });
+          const explicit = process.env.COMMIT_PULL_REQUEST;
+          const number = explicit ? Number(explicit) : context.payload.pull_request?.number;
+          if (!Number.isInteger(number)) {
+            throw new Error('Conventional Commit: no pull request number (event payload or pull-request input)');
+          }
+          const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: number});
           validate(pr.title);

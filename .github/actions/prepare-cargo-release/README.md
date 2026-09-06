@@ -26,6 +26,12 @@ revision, which the calling pipeline validates, tags and publishes. A main
 checkout that is no longer the remote head never prepares anything. PR runs
 return their checked-out revision without mutation.
 
-Requires `contents: write`, a full git checkout, Python 3.11+, Rust and GitHub CLI.
+Because a pull request created with the workflow token raises no `pull_request`
+events, the action dispatches the repository's `ci.yml` on the release branch and
+its `conventional-commits.yml` with `pull_request=<number>` so the checks main
+requires appear on the release PR. The calling job therefore needs
+`contents: write`, `pull-requests: write` and `actions: write`.
+
+Requires a full git checkout, Python 3.11+, Rust and GitHub CLI.
 No publishing token is used here. Registry publication belongs exclusively to the
 calling pipeline after its validation gate.

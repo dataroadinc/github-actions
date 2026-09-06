@@ -151,11 +151,17 @@ def open_release_pull_request(source, version):
             'Refreshed automatically whenever main gains unreleased changes.')
     pulls = json.loads(gh_api(f'repos/{repository}/pulls?state=open&head={repository.split("/")[0]}:{RELEASE_BRANCH}'))
     if pulls:
-        gh_api('--method', 'PATCH', f'repos/{repository}/pulls/{pulls[0]["number"]}', '-f', f'title={title}',
-               '-f', f'body={body}')
+        number = pulls[0]['number']
+        gh_api('--method', 'PATCH', f'repos/{repository}/pulls/{number}', '-f', f'title={title}', '-f', f'body={body}')
     else:
-        gh_api('--method', 'POST', f'repos/{repository}/pulls', '-f', f'title={title}', '-f', f'body={body}',
-               '-f', f'head={RELEASE_BRANCH}', '-f', 'base=main')
+        number = json.loads(gh_api('--method', 'POST', f'repos/{repository}/pulls', '-f', f'title={title}',
+                                   '-f', f'body={body}', '-f', f'head={RELEASE_BRANCH}', '-f', 'base=main'))['number']
+    # A pull request created with the workflow token raises no pull_request
+    # events, so the checks main requires are dispatched explicitly: the CI
+    # pipeline on the release branch and the title check for this PR number.
+    gh_api('--method', 'POST', f'repos/{repository}/actions/workflows/ci.yml/dispatches', '-f', f'ref={RELEASE_BRANCH}')
+    gh_api('--method', 'POST', f'repos/{repository}/actions/workflows/conventional-commits.yml/dispatches',
+           '-f', 'ref=main', '-f', f'inputs[pull_request]={number}')
 
 if __name__ == '__main__':
     prepare()
