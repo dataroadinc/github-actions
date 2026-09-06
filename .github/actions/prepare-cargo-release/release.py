@@ -67,17 +67,9 @@ def prepare():
         return
     remote = run('git', 'ls-remote', 'origin', 'refs/heads/main').split()[0]
     if source != remote:
-        subprocess.run(['git', 'fetch', 'origin', remote], check=True)
-        parent = run('git', 'rev-parse', f'{remote}^')
-        message = run('git', 'log', '-1', '--format=%B', remote)
-        if parent == source and message.startswith('chore(release): prepare ') and f'Release source: {source}' in message:
-            # Resume the exact version commit prepared by an earlier attempt.
-            subprocess.run(['git', 'checkout', '--detach', remote], check=True)
-            source = remote
-        else:
-            # A newer main run includes these changes; never publish a stale base.
-            output(revision=source, release='false', version='')
-            return
+        # A newer main run includes these changes; never publish a stale base.
+        output(revision=source, release='false', version='')
+        return
     manifest = tomllib.loads(pathlib.Path('Cargo.toml').read_text())
     package = manifest['workspace']['package'] if 'workspace' in manifest and 'package' in manifest['workspace'] else manifest['package']
     current = package['version']
@@ -98,6 +90,29 @@ def prepare():
     if version == current:
         output(revision=source, release='true', version=version)
         return
+    open_release_pull_request(source, version)
+    output(revision=source, release='false', version=current)
+
+
+RELEASE_BRANCH = 'release/pending'
+
+
+def gh_api(*args, **kwargs):
+    result = subprocess.run(['gh', 'api', *args], capture_output=True, text=True, **kwargs)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+    return result.stdout
+
+
+def open_release_pull_request(source, version):
+    """Prepare `version` on the release branch and open (or refresh) its PR.
+
+    Every merge into main requires the owner's approval, so the version commit
+    is never written to main directly: it lands on `release/pending`, GitHub
+    records it as a verified commit, and the owner (or an agent acting for the
+    owner) merges the pull request. The next main run then finds
+    `manifest == version` with no tag and publishes that exact revision.
+    """
     subprocess.run(['cargo', 'version-info', 'bump', '--version', version, '--no-commit'], check=True)
     paths = run('git', 'diff', '--name-only').splitlines()
     # Release lockfiles bind validation and publication to one dependency graph,
@@ -108,23 +123,39 @@ def prepare():
         raise RuntimeError('Version bump did not update Cargo.toml')
     additions = [{'path': path, 'contents': base64.b64encode(pathlib.Path(path).read_bytes()).decode()}
                  for path in paths]
+    repository = os.environ['GITHUB_REPOSITORY']
+    ref = f'repos/{repository}/git/refs/heads/{RELEASE_BRANCH}'
+    # The release branch always restarts from the current main so the PR carries
+    # exactly one commit: the version bump on top of the source it releases.
+    branch_exists = subprocess.run(['gh', 'api', ref], capture_output=True, text=True).returncode == 0
+    if branch_exists:
+        gh_api('--method', 'PATCH', ref, '-f', f'sha={source}', '-F', 'force=true')
+    else:
+        gh_api('--method', 'POST', f'repos/{repository}/git/refs', '-f', f'ref=refs/heads/{RELEASE_BRANCH}',
+               '-f', f'sha={source}')
     payload = {
         'query': 'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }',
         'variables': {'input': {
-            'branch': {'repositoryNameWithOwner': os.environ['GITHUB_REPOSITORY'], 'branchName': 'main'},
+            'branch': {'repositoryNameWithOwner': repository, 'branchName': RELEASE_BRANCH},
             'expectedHeadOid': source,
             'message': {'headline': f'chore(release): prepare {version}', 'body': f'Release source: {source}'},
             'fileChanges': {'additions': additions},
         }},
     }
-    result = subprocess.run(['gh', 'api', 'graphql', '--input', '-'], input=json.dumps(payload),
-                            capture_output=True, text=True, check=True)
-    response = json.loads(result.stdout)
+    response = json.loads(gh_api('graphql', '--input', '-', input=json.dumps(payload)))
     if response.get('errors'):
         raise RuntimeError(response['errors'])
-    revision = response['data']['createCommitOnBranch']['commit']['oid']
-    output(revision=revision, release='true', version=version)
-
+    title = f'chore(release): prepare {version}'
+    body = (f'Release source: {source}\n\nMerging this pull request publishes `{version}` from the '
+            'squash commit; the release pipeline validates, tags and publishes that exact revision. '
+            'Refreshed automatically whenever main gains unreleased changes.')
+    pulls = json.loads(gh_api(f'repos/{repository}/pulls?state=open&head={repository.split("/")[0]}:{RELEASE_BRANCH}'))
+    if pulls:
+        gh_api('--method', 'PATCH', f'repos/{repository}/pulls/{pulls[0]["number"]}', '-f', f'title={title}',
+               '-f', f'body={body}')
+    else:
+        gh_api('--method', 'POST', f'repos/{repository}/pulls', '-f', f'title={title}', '-f', f'body={body}',
+               '-f', f'head={RELEASE_BRANCH}', '-f', 'base=main')
 
 if __name__ == '__main__':
     prepare()
