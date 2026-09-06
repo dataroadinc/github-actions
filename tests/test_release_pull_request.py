@@ -68,8 +68,7 @@ class ReleasePullRequestTests(unittest.TestCase):
             (json.dumps({'data': {'createCommitOnBranch': {'commit': {'oid': 'abc'}}}}), 0, ''),
             ('[]', 0, ''),                        # no open release PR
             ('{"number": 7}', 0, ''),             # PR created
-            ('', 0, ''),                          # CI dispatched on the release branch
-            ('', 0, ''),                          # title check dispatched for the PR
+            ('{}', 0, ''),                        # Conventional Commit status on the release head
         ]
         mock, calls = self.mock_commands(responses)
         with mock, patch.object(release, 'output') as output:
@@ -81,11 +80,11 @@ class ReleasePullRequestTests(unittest.TestCase):
         self.assertIn('repos/owner/example/pulls', create_pr)
         self.assertIn('title=chore(release): prepare 1.2.4', create_pr)
         self.assertIn(f'head={release.RELEASE_BRANCH}', create_pr)
-        self.assertIn('repos/owner/example/actions/workflows/ci.yml/dispatches', calls[6])
-        self.assertIn(f'ref={release.RELEASE_BRANCH}', calls[6])
-        self.assertIn('repos/owner/example/actions/workflows/conventional-commits.yml/dispatches', calls[7])
-        self.assertIn('inputs[pull_request]=7', calls[7])
-        self.assertIn(f'ref={release.RELEASE_BRANCH}', calls[7], 'title check must land on the PR head')
+        status = calls[6]
+        self.assertIn('repos/owner/example/statuses/abc', status, 'status goes on the release head commit')
+        self.assertIn('context=Conventional Commit', status)
+        self.assertIn('state=success', status)
+        self.assertIn('target_url=https://github.com/owner/example/pull/7', status)
         self.assertEqual(self.git('rev-parse', 'HEAD'), source, 'main is never written')
 
     def test_existing_release_branch_and_pull_request_are_refreshed(self):
@@ -97,8 +96,7 @@ class ReleasePullRequestTests(unittest.TestCase):
             (json.dumps({'data': {'createCommitOnBranch': {'commit': {'oid': 'abc'}}}}), 0, ''),
             ('[{"number": 7}]', 0, ''),             # open release PR exists
             ('{}', 0, ''),                          # PR title/body refreshed
-            ('', 0, ''),                            # CI dispatched
-            ('', 0, ''),                            # title check dispatched
+            ('{}', 0, ''),                          # Conventional Commit status
         ]
         mock, calls = self.mock_commands(responses)
         with mock, patch.object(release, 'output'):

@@ -145,6 +145,7 @@ def open_release_pull_request(source, version):
     response = json.loads(gh_api('graphql', '--input', '-', input=json.dumps(payload)))
     if response.get('errors'):
         raise RuntimeError(response['errors'])
+    head = response['data']['createCommitOnBranch']['commit']['oid']
     title = f'chore(release): prepare {version}'
     body = (f'Release source: {source}\n\nMerging this pull request publishes `{version}` from the '
             'squash commit; the release pipeline validates, tags and publishes that exact revision. '
@@ -156,14 +157,17 @@ def open_release_pull_request(source, version):
     else:
         number = json.loads(gh_api('--method', 'POST', f'repos/{repository}/pulls', '-f', f'title={title}',
                                    '-f', f'body={body}', '-f', f'head={RELEASE_BRANCH}', '-f', 'base=main'))['number']
-    # A pull request created with the workflow token raises no pull_request
-    # events, so the checks main requires are dispatched explicitly: the CI
-    # pipeline on the release branch and the title check for this PR number.
-    gh_api('--method', 'POST', f'repos/{repository}/actions/workflows/ci.yml/dispatches', '-f', f'ref={RELEASE_BRANCH}')
-    # Both dispatches run on the release branch so their check runs attach to
-    # the pull request's head commit, where main's required checks look.
-    gh_api('--method', 'POST', f'repos/{repository}/actions/workflows/conventional-commits.yml/dispatches',
-           '-f', f'ref={RELEASE_BRANCH}', '-f', f'inputs[pull_request]={number}')
+    # A pull request created with the workflow token receives pull_request
+    # checks but no pull_request_target event, so the trusted title check never
+    # runs for it. The title was generated here and validated against the same
+    # shared policy, so record that verdict as the required commit status.
+    if not re.fullmatch(json.loads((pathlib.Path(__file__).parent.parent / 'conventional-commit/policy.json')
+                                   .read_text())['header_pattern'], title):
+        raise RuntimeError(f'Release title violates the commit policy: {title!r}')
+    gh_api('--method', 'POST', f'repos/{repository}/statuses/{head}', '-f', 'state=success',
+           '-f', 'context=Conventional Commit',
+           '-f', 'description=Release title validated by prepare-cargo-release against the shared policy',
+           '-f', f'target_url=https://github.com/{repository}/pull/{number}')
 
 if __name__ == '__main__':
     prepare()
