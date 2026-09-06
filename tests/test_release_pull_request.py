@@ -85,6 +85,7 @@ class ReleasePullRequestTests(unittest.TestCase):
         self.assertIn(f'ref={release.RELEASE_BRANCH}', calls[6])
         self.assertIn('repos/owner/example/actions/workflows/conventional-commits.yml/dispatches', calls[7])
         self.assertIn('inputs[pull_request]=7', calls[7])
+        self.assertIn(f'ref={release.RELEASE_BRANCH}', calls[7], 'title check must land on the PR head')
         self.assertEqual(self.git('rev-parse', 'HEAD'), source, 'main is never written')
 
     def test_existing_release_branch_and_pull_request_are_refreshed(self):

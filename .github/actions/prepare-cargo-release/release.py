@@ -160,8 +160,10 @@ def open_release_pull_request(source, version):
     # events, so the checks main requires are dispatched explicitly: the CI
     # pipeline on the release branch and the title check for this PR number.
     gh_api('--method', 'POST', f'repos/{repository}/actions/workflows/ci.yml/dispatches', '-f', f'ref={RELEASE_BRANCH}')
+    # Both dispatches run on the release branch so their check runs attach to
+    # the pull request's head commit, where main's required checks look.
     gh_api('--method', 'POST', f'repos/{repository}/actions/workflows/conventional-commits.yml/dispatches',
-           '-f', 'ref=main', '-f', f'inputs[pull_request]={number}')
+           '-f', f'ref={RELEASE_BRANCH}', '-f', f'inputs[pull_request]={number}')
 
 if __name__ == '__main__':
     prepare()
