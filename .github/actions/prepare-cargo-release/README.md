@@ -26,11 +26,12 @@ revision, which the calling pipeline validates, tags and publishes. A main
 checkout that is no longer the remote head never prepares anything. PR runs
 return their checked-out revision without mutation.
 
-Because a pull request created with the workflow token raises no `pull_request`
-events, the action dispatches the repository's `ci.yml` on the release branch and
-its `conventional-commits.yml` with `pull_request=<number>` so the checks main
-requires appear on the release PR. The calling job therefore needs
-`contents: write`, `pull-requests: write` and `actions: write`.
+A pull request created with the workflow token receives its `pull_request` checks
+but no `pull_request_target` event, so the trusted title check never runs for the
+release PR. The action generated that title and validates it against the shared
+commit policy, then records the verdict as the `Conventional Commit` commit status
+on the release head. The calling job therefore needs `contents: write`,
+`pull-requests: write` and `statuses: write`.
 
 Requires a full git checkout, Python 3.11+, Rust and GitHub CLI.
 No publishing token is used here. Registry publication belongs exclusively to the
